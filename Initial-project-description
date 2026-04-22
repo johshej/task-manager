@@ -1,0 +1,248 @@
+# Task Management System (Laravel 13)
+
+## Overview
+A structured task management system with full API access, designed for both humans and AI agents. Work is organized into:
+
+**Epic → Feature → Task**
+
+Tasks are the primary execution unit. Features group related tasks, and Epics define the overall initiative.
+
+The system includes:
+- API-first design (Laravel Sanctum)
+- AI and user access via API tokens
+- Full audit history per task
+- Clear distinction between AI and human actions
+
+Everything in the project description is up for discussion. If you have any suggestions, that might be better or be an improvement, let's discuss it before making it.
+---
+
+# Core Domain Model
+
+## Epic
+High-level initiative or goal.
+
+**Fields:**
+- id
+- name
+- description (nullable)
+- status (active, paused, archived)
+- created_at
+- updated_at
+
+**Relationships:**
+- hasMany Features
+
+---
+
+## Feature
+Logical grouping inside an Epic.
+
+**Fields:**
+- id
+- epic_id
+- name
+- description (nullable)
+- status (planned, active, done, archived)
+- order_index
+- created_at
+- updated_at
+
+**Relationships:**
+- belongsTo Epic
+- hasMany Tasks
+
+---
+
+## Task
+Concrete actionable unit of work (main entity).
+
+**Fields:**
+- id
+- feature_id
+- title
+- description (nullable)
+- status (todo, doing, blocked, done)
+- priority (integer)
+- assigned_to (nullable user_id)
+- order_index
+- created_at
+- updated_at
+
+**Relationships:**
+- belongsTo Feature
+- hasMany TaskHistory
+
+---
+
+# Authentication (Sanctum)
+
+## API Tokens
+
+Used for both users and AI agents.
+
+**Fields:**
+- id
+- token (hashed)
+- name
+- abilities (array)
+- created_by_user_id
+- is_ai (boolean)
+- created_at
+
+### Actor resolution rules:
+- `is_ai = true` → actor_type = `ai`
+- `is_ai = false` → actor_type = `user`
+- session auth → actor_type = `user`
+
+No external AI provider names are stored or displayed.
+
+---
+
+# Task History (Audit System)
+
+Every mutation on a task MUST generate a history entry.
+
+## TaskHistory
+
+**Fields:**
+- id
+- task_id
+- changed_by_user_id (nullable)
+- changed_by_token_id (nullable)
+- actor_type (enum: user, ai)
+- action (enum):
+  - created
+  - updated
+  - status_changed
+  - assigned
+  - priority_changed
+  - deleted
+- old_values (json, nullable)
+- new_values (json, nullable)
+- created_at
+
+### Rule:
+Every write operation on a Task must create a TaskHistory record.
+
+---
+
+# API Design
+
+## Epics
+- GET /api/epics
+- POST /api/epics
+- GET /api/epics/{id}
+- PUT /api/epics/{id}
+- DELETE /api/epics/{id}
+
+---
+
+## Features
+- GET /api/epics/{epic}/features
+- POST /api/features
+- PUT /api/features/{id}
+- DELETE /api/features/{id}
+
+---
+
+## Tasks
+- GET /api/features/{feature}/tasks
+- POST /api/tasks
+- GET /api/tasks/{id}
+- PUT /api/tasks/{id}
+- DELETE /api/tasks/{id}
+
+### Task actions
+- PATCH /api/tasks/{id}/status
+- PATCH /api/tasks/{id}/assign
+- PATCH /api/tasks/{id}/priority
+- PATCH /api/tasks/{id}/order
+
+---
+
+## Task History
+- GET /api/tasks/{id}/history
+
+---
+
+# AI Capabilities
+
+AI agents (via API tokens with `is_ai = true`) can:
+- Create tasks
+- Update tasks
+- Change status
+- Assign tasks
+- Modify priority
+
+AI agents cannot:
+- Bypass audit logging
+- Access unauthorized resources
+- Delete history records
+
+---
+
+# Data Rules
+
+- Tasks must belong to a Feature
+- Features must belong to an Epic
+- No subtasks allowed
+- All changes are audited
+
+---
+
+# Ordering
+
+- `order_index` controls manual ordering within a Feature
+
+---
+
+# Response Format (important for AI + UI)
+
+All task responses MUST include:
+
+```json
+{
+  "id": 1,
+  "title": "Fix webhook handler",
+  "status": "doing",
+  "last_change": {
+    "actor_type": "ai",
+    "label": "AI"
+  },
+  "last_change_at": "2026-04-22T10:00:00Z"
+}
+
+
+
+## UI Requirements
+
+### Visual distinction of changes
+
+#### AI changes
+- Color: blue/purple indicator  
+- Label: "AI updated"
+
+#### User changes
+- Color: green/neutral indicator  
+- Label: "User updated"
+
+---
+
+### History view
+
+Each task must display:
+
+- chronological history  
+- actor type per entry (AI/User)  
+- old vs new values  
+- timestamp per change  
+
+---
+
+## System Rules
+
+- No subtasks (only Tasks under Features)  
+- All mutations must be logged  
+- AI is a first-class actor type  
+- No AI provider names stored or exposed  
+- API-first architecture  
