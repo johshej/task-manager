@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['epic_id', 'name', 'description', 'status', 'order_index'])]
+#[Fillable(['epic_id', 'name', 'description', 'status', 'order_index', 'tdd', 'ai_mode', 'environment'])]
 class Feature extends Model
 {
     /** @use HasFactory<FeatureFactory> */
@@ -22,6 +22,7 @@ class Feature extends Model
         return [
             'status' => FeatureStatus::class,
             'order_index' => 'integer',
+            'tdd' => 'boolean',
         ];
     }
 
@@ -35,5 +36,20 @@ class Feature extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
+    }
+
+    public function resolvedTdd(): ?bool
+    {
+        return $this->tdd ?? $this->epic?->tdd;
+    }
+
+    public function resolvedAiMode(): ?string
+    {
+        return $this->ai_mode ?? $this->epic?->ai_mode;
+    }
+
+    public function resolvedEnvironment(): ?string
+    {
+        return $this->environment ?? $this->epic?->environment;
     }
 }

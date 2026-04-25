@@ -1,10 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\V1\EpicController;
-use App\Http\Controllers\Api\V1\TokenController;
 use App\Http\Controllers\Api\V1\FeatureController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\TaskHistoryController;
+use App\Http\Controllers\Api\V1\TokenController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
@@ -29,6 +29,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::patch('tasks/{task}/assign', [TaskController::class, 'updateAssign']);
     Route::patch('tasks/{task}/priority', [TaskController::class, 'updatePriority']);
     Route::patch('tasks/{task}/order', [TaskController::class, 'updateOrder']);
+    Route::patch('tasks/{task}/execution-order', [TaskController::class, 'updateExecutionOrder']);
 
     Route::get('tasks/{task}/history', [TaskHistoryController::class, 'index']);
 });

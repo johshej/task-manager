@@ -22,6 +22,9 @@ class UpdateFeatureRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'status' => ['sometimes', Rule::enum(FeatureStatus::class)],
             'order_index' => ['sometimes', 'integer', 'min:0'],
+            'tdd' => ['nullable', 'boolean'],
+            'ai_mode' => ['nullable', 'string'],
+            'environment' => ['nullable', 'string', 'max:100'],
         ];
     }
 }

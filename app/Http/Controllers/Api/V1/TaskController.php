@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\PatchTaskAssignRequest;
+use App\Http\Requests\Api\V1\PatchTaskExecutionOrderRequest;
 use App\Http\Requests\Api\V1\PatchTaskOrderRequest;
 use App\Http\Requests\Api\V1\PatchTaskPriorityRequest;
 use App\Http\Requests\Api\V1\PatchTaskStatusRequest;
@@ -82,6 +83,14 @@ class TaskController extends Controller
     }
 
     public function updateOrder(PatchTaskOrderRequest $request, Task $task): TaskResource
+    {
+        $task->update($request->validated());
+        $task->load('latestHistory');
+
+        return new TaskResource($task);
+    }
+
+    public function updateExecutionOrder(PatchTaskExecutionOrderRequest $request, Task $task): TaskResource
     {
         $task->update($request->validated());
         $task->load('latestHistory');

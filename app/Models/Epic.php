@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'description', 'repository_url', 'status'])]
+#[Fillable(['name', 'description', 'repository_url', 'status', 'tdd', 'ai_mode', 'environment'])]
 class Epic extends Model
 {
     /** @use HasFactory<EpicFactory> */
@@ -20,6 +20,7 @@ class Epic extends Model
     {
         return [
             'status' => EpicStatus::class,
+            'tdd' => 'boolean',
         ];
     }
 

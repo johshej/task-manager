@@ -24,6 +24,10 @@ class UpdateTaskRequest extends FormRequest
             'priority' => ['sometimes', 'integer', 'min:0'],
             'assigned_to' => ['nullable', 'uuid', 'exists:users,id'],
             'order_index' => ['sometimes', 'integer', 'min:0'],
+            'execution_order' => ['sometimes', 'integer', 'min:0'],
+            'tdd' => ['nullable', 'boolean'],
+            'ai_mode' => ['nullable', 'string'],
+            'environment' => ['nullable', 'string', 'max:100'],
         ];
     }
 }

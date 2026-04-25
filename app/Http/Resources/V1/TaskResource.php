@@ -22,6 +22,13 @@ class TaskResource extends JsonResource
             'priority' => $this->priority,
             'assigned_to' => $this->assigned_to,
             'order_index' => $this->order_index,
+            'execution_order' => $this->execution_order,
+            'tdd' => $this->tdd,
+            'ai_mode' => $this->ai_mode,
+            'environment' => $this->environment,
+            'resolved_tdd' => $this->resolvedTdd(),
+            'resolved_ai_mode' => $this->resolvedAiMode(),
+            'resolved_environment' => $this->resolvedEnvironment(),
             'last_change' => $lastHistory ? [
                 'actor_type' => $lastHistory->actor_type,
                 'label' => $lastHistory->actor_type === ActorType::Ai ? 'AI' : 'User',

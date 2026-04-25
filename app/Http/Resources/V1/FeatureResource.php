@@ -17,6 +17,12 @@ class FeatureResource extends JsonResource
             'description' => $this->description,
             'status' => $this->status,
             'order_index' => $this->order_index,
+            'tdd' => $this->tdd,
+            'ai_mode' => $this->ai_mode,
+            'environment' => $this->environment,
+            'resolved_tdd' => $this->resolvedTdd(),
+            'resolved_ai_mode' => $this->resolvedAiMode(),
+            'resolved_environment' => $this->resolvedEnvironment(),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

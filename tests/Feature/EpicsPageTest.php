@@ -311,6 +311,277 @@ test('full UI flow: epic with SSH URL, feature, task, status change, and user hi
     ]);
 });
 
+// ── New fields: TDD / AI mode / Environment ───────────────────────────────────
+
+test('new fields save on epic create', function () {
+    Livewire::test('pages::epics.index')
+        ->set('name', 'TDD Epic')
+        ->set('tdd', '1')
+        ->set('aiMode', 'Do everything autonomously')
+        ->set('environment', 'Development')
+        ->call('createEpic')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('epics', [
+        'name' => 'TDD Epic',
+        'tdd' => true,
+        'ai_mode' => 'Do everything autonomously',
+        'environment' => 'Development',
+    ]);
+});
+
+test('new fields save on epic edit', function () {
+    $epic = Epic::factory()->create(['name' => 'Plain Epic']);
+
+    Livewire::test('pages::epics.index')
+        ->call('editEpic', $epic->id)
+        ->set('editTdd', '0')
+        ->set('editAiMode', 'Ask before each step')
+        ->set('editEnvironment', 'Production')
+        ->call('updateEpic')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('epics', [
+        'id' => $epic->id,
+        'tdd' => false,
+        'ai_mode' => 'Ask before each step',
+        'environment' => 'Production',
+    ]);
+});
+
+test('new fields save on feature create', function () {
+    $epic = Epic::factory()->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('newFeatureName', 'TDD Feature')
+        ->set('newFeatureTdd', '1')
+        ->set('newFeatureAiMode', 'Run tests first')
+        ->set('newFeatureEnvironment', 'Staging')
+        ->call('createFeature')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('features', [
+        'epic_id' => $epic->id,
+        'name' => 'TDD Feature',
+        'tdd' => true,
+        'ai_mode' => 'Run tests first',
+        'environment' => 'Staging',
+    ]);
+});
+
+test('new fields save on feature edit', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditFeature', $feature->id)
+        ->set('editFeatureTdd', '0')
+        ->set('editFeatureAiMode', 'Silent mode')
+        ->set('editFeatureEnvironment', 'Production')
+        ->call('updateFeature')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('features', [
+        'id' => $feature->id,
+        'tdd' => false,
+        'ai_mode' => 'Silent mode',
+        'environment' => 'Production',
+    ]);
+});
+
+test('new fields save on task create', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openAddTask', $feature->id)
+        ->set('newTaskTitle', 'TDD Task')
+        ->set('newTaskTdd', '1')
+        ->set('newTaskAiMode', 'Write test first')
+        ->set('newTaskEnvironment', 'Development')
+        ->call('createTask')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('tasks', [
+        'feature_id' => $feature->id,
+        'title' => 'TDD Task',
+        'tdd' => true,
+        'ai_mode' => 'Write test first',
+        'environment' => 'Development',
+    ]);
+});
+
+test('new fields save on task edit', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->call('startEditingTask')
+        ->set('editTaskTdd', '1')
+        ->set('editTaskAiMode', 'Autonomous')
+        ->set('editTaskEnvironment', 'Staging')
+        ->call('saveTask')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('tasks', [
+        'id' => $task->id,
+        'tdd' => true,
+        'ai_mode' => 'Autonomous',
+        'environment' => 'Staging',
+    ]);
+});
+
+test('task inherits environment from feature when own is null', function () {
+    $epic = Epic::factory()->create(['environment' => 'prod']);
+    $feature = Feature::factory()->for($epic)->create(['environment' => 'staging']);
+    $task = Task::factory()->for($feature)->create(['environment' => null]);
+
+    $task->load('feature.epic');
+
+    expect($task->resolvedEnvironment())->toBe('staging');
+});
+
+test('feature inherits environment from epic when own is null', function () {
+    $epic = Epic::factory()->create(['environment' => 'prod']);
+    $feature = Feature::factory()->for($epic)->create(['environment' => null]);
+
+    $feature->load('epic');
+
+    expect($feature->resolvedEnvironment())->toBe('prod');
+});
+
+test('task own environment overrides feature and epic', function () {
+    $epic = Epic::factory()->create(['environment' => 'prod']);
+    $feature = Feature::factory()->for($epic)->create(['environment' => 'staging']);
+    $task = Task::factory()->for($feature)->create(['environment' => 'dev']);
+
+    $task->load('feature.epic');
+
+    expect($task->resolvedEnvironment())->toBe('dev');
+});
+
+test('task tdd inherits from feature when own is null', function () {
+    $epic = Epic::factory()->create(['tdd' => true]);
+    $feature = Feature::factory()->for($epic)->create(['tdd' => false]);
+    $task = Task::factory()->for($feature)->create(['tdd' => null]);
+
+    $task->load('feature.epic');
+
+    expect($task->resolvedTdd())->toBeFalse();
+});
+
+test('null tdd on all ancestors resolves to null', function () {
+    $epic = Epic::factory()->create(['tdd' => null]);
+    $feature = Feature::factory()->for($epic)->create(['tdd' => null]);
+    $task = Task::factory()->for($feature)->create(['tdd' => null]);
+
+    $task->load('feature.epic');
+
+    expect($task->resolvedTdd())->toBeNull();
+});
+
+// ── New task gets last execution order ────────────────────────────────────────
+
+test('new task is appended to end of execution queue', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $existing = Task::factory()->for($feature)->create(['execution_order' => 5]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openAddTask', $feature->id)
+        ->set('newTaskTitle', 'Last Task')
+        ->call('createTask')
+        ->assertHasNoErrors();
+
+    $newTask = $feature->tasks()->where('title', 'Last Task')->firstOrFail();
+    expect($newTask->execution_order)->toBe(6);
+});
+
+// ── Kanban view ───────────────────────────────────────────────────────────────
+
+test('kanban view renders status columns', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['title' => 'Kanban Task', 'status' => TaskStatus::Doing]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban')
+        ->assertSee('Kanban Task')
+        ->assertSee('In Progress');
+});
+
+test('sortKanban updates task status', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create(['status' => TaskStatus::Todo]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('sortKanban', $task->id, 0, TaskStatus::Done->value);
+
+    $this->assertDatabaseHas('tasks', [
+        'id' => $task->id,
+        'status' => TaskStatus::Done->value,
+    ]);
+});
+
+// ── Execution queue (sort view) ───────────────────────────────────────────────
+
+test('sort queue view renders tasks in execution order', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['title' => 'First Task', 'execution_order' => 0]);
+    Task::factory()->for($feature)->create(['title' => 'Second Task', 'execution_order' => 1]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'sort')
+        ->assertSeeInOrder(['First Task', 'Second Task']);
+});
+
+test('sortQueue reorders execution_order', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['execution_order' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['execution_order' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['execution_order' => 2]);
+
+    // Move taskC to position 0 (first)
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('sortQueue', $taskC->id, 0);
+
+    expect($taskC->fresh()->execution_order)->toBe(0);
+    expect($taskA->fresh()->execution_order)->toBe(1);
+    expect($taskB->fresh()->execution_order)->toBe(2);
+});
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+
+test('filter by feature hides other features tasks in board view', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['name' => 'Feature A']);
+    $featureB = Feature::factory()->for($epic)->create(['name' => 'Feature B']);
+    Task::factory()->for($featureA)->create(['title' => 'Task A']);
+    Task::factory()->for($featureB)->create(['title' => 'Task B']);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('filterFeatureIds', [$featureA->id])
+        ->assertSee('Task A')
+        ->assertDontSee('Task B');
+});
+
+test('filter by status hides non-matching tasks', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['title' => 'Todo Task', 'status' => TaskStatus::Todo]);
+    Task::factory()->for($feature)->create(['title' => 'Done Task', 'status' => TaskStatus::Done]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('filterStatuses', [TaskStatus::Todo->value])
+        ->assertSee('Todo Task')
+        ->assertDontSee('Done Task');
+});
+
 test('board shows AI badge for AI-changed tasks', function () {
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();

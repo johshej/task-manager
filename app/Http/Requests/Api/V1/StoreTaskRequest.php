@@ -25,6 +25,10 @@ class StoreTaskRequest extends FormRequest
             'priority' => ['nullable', 'integer', 'min:0'],
             'assigned_to' => ['nullable', 'uuid', 'exists:users,id'],
             'order_index' => ['nullable', 'integer', 'min:0'],
+            'execution_order' => ['nullable', 'integer', 'min:0'],
+            'tdd' => ['nullable', 'boolean'],
+            'ai_mode' => ['nullable', 'string'],
+            'environment' => ['nullable', 'string', 'max:100'],
         ];
     }
 }

@@ -169,5 +169,7 @@ new #[Title('Security settings')] class extends Component {
                 </div>
             </section>
         @endif
+
+        <livewire:pages::settings.api-tokens />
     </x-pages::settings.layout>
 </section>

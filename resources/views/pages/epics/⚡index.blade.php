@@ -13,14 +13,30 @@ new #[Title('Epics')] class extends Component {
     public string $name = '';
     public string $description = '';
     public string $repositoryUrl = '';
+    public string $tdd = '';
+    public string $aiMode = '';
+    public string $environment = '';
 
     public ?string $editingEpicId = null;
     public string $editName = '';
     public string $editDescription = '';
     public string $editRepositoryUrl = '';
     public string $editStatus = '';
+    public string $editTdd = '';
+    public string $editAiMode = '';
+    public string $editEnvironment = '';
 
     public ?string $deletingEpicId = null;
+
+    private function tddNullable(string $value): ?bool
+    {
+        return $value === '' ? null : (bool) $value;
+    }
+
+    private function boolToTddString(?bool $value): string
+    {
+        return $value === null ? '' : ($value ? '1' : '0');
+    }
 
     public function createEpic(): void
     {
@@ -28,6 +44,9 @@ new #[Title('Epics')] class extends Component {
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'repositoryUrl' => ['nullable', 'regex:/^(https?:\/\/\S+|git@[^:]+:\S+)$/', 'max:500'],
+            'tdd' => ['nullable', 'in:0,1'],
+            'aiMode' => ['nullable', 'string'],
+            'environment' => ['nullable', 'string', 'max:100'],
         ]);
 
         Epic::create([
@@ -35,9 +54,12 @@ new #[Title('Epics')] class extends Component {
             'description' => $this->description ?: null,
             'repository_url' => $this->repositoryUrl ?: null,
             'status' => EpicStatus::Active,
+            'tdd' => $this->tddNullable($this->tdd),
+            'ai_mode' => $this->aiMode ?: null,
+            'environment' => $this->environment ?: null,
         ]);
 
-        $this->reset('name', 'description', 'repositoryUrl');
+        $this->reset('name', 'description', 'repositoryUrl', 'tdd', 'aiMode', 'environment');
         $this->modal('create-epic')->close();
         Flux::toast(variant: 'success', text: 'Epic created.');
     }
@@ -50,6 +72,9 @@ new #[Title('Epics')] class extends Component {
         $this->editDescription = $epic->description ?? '';
         $this->editRepositoryUrl = $epic->repository_url ?? '';
         $this->editStatus = $epic->status->value;
+        $this->editTdd = $this->boolToTddString($epic->tdd);
+        $this->editAiMode = $epic->ai_mode ?? '';
+        $this->editEnvironment = $epic->environment ?? '';
         $this->modal('edit-epic')->show();
     }
 
@@ -60,6 +85,9 @@ new #[Title('Epics')] class extends Component {
             'editDescription' => ['nullable', 'string'],
             'editRepositoryUrl' => ['nullable', 'regex:/^(https?:\/\/\S+|git@[^:]+:\S+)$/', 'max:500'],
             'editStatus' => ['required', 'in:' . implode(',', array_column(EpicStatus::cases(), 'value'))],
+            'editTdd' => ['nullable', 'in:0,1'],
+            'editAiMode' => ['nullable', 'string'],
+            'editEnvironment' => ['nullable', 'string', 'max:100'],
         ]);
 
         Epic::findOrFail($this->editingEpicId)->update([
@@ -67,6 +95,9 @@ new #[Title('Epics')] class extends Component {
             'description' => $this->editDescription ?: null,
             'repository_url' => $this->editRepositoryUrl ?: null,
             'status' => $this->editStatus,
+            'tdd' => $this->tddNullable($this->editTdd),
+            'ai_mode' => $this->editAiMode ?: null,
+            'environment' => $this->editEnvironment ?: null,
         ]);
 
         $this->modal('edit-epic')->close();
@@ -185,8 +216,8 @@ new #[Title('Epics')] class extends Component {
         </div>
 
     {{-- Create Epic Modal --}}
-    <flux:modal name="create-epic" :show="$errors->isNotEmpty()" focusable class="md:w-[480px]">
-        <form wire:submit="createEpic" class="space-y-6">
+    <flux:modal name="create-epic" :show="$errors->isNotEmpty()" focusable class="md:w-[520px]">
+        <form wire:submit="createEpic" class="space-y-5">
             <div>
                 <flux:heading size="lg">{{ __('New epic') }}</flux:heading>
                 <flux:subheading>{{ __('An epic is a large body of work broken into features and tasks.') }}</flux:subheading>
@@ -195,6 +226,23 @@ new #[Title('Epics')] class extends Component {
             <flux:input wire:model="name" :label="__('Name')" autofocus required />
             <flux:textarea wire:model="description" :label="__('Description (optional)')" rows="3" />
             <flux:input wire:model="repositoryUrl" :label="__('Repository URL (optional)')" type="text" placeholder="https://github.com/org/repo or git@github.com:org/repo.git" />
+
+            <div class="grid grid-cols-2 gap-4">
+                <flux:select wire:model="tdd" :label="__('TDD')">
+                    <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
+                    <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
+                    <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
+                </flux:select>
+                <flux:select wire:model="environment" :label="__('Environment')">
+                    <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
+                    <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
+                    <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
+                    <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
+                    <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                </flux:select>
+            </div>
+
+            <flux:textarea wire:model="aiMode" :label="__('AI mode (optional)')" rows="2" placeholder="{{ __('Describe how AI should behave for this epic...') }}" />
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close>
@@ -206,8 +254,8 @@ new #[Title('Epics')] class extends Component {
     </flux:modal>
 
     {{-- Edit Epic Modal --}}
-    <flux:modal name="edit-epic" focusable class="md:w-[480px]">
-        <form wire:submit="updateEpic" class="space-y-6">
+    <flux:modal name="edit-epic" focusable class="md:w-[520px]">
+        <form wire:submit="updateEpic" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit epic') }}</flux:heading>
 
             <flux:input wire:model="editName" :label="__('Name')" autofocus required />
@@ -219,6 +267,23 @@ new #[Title('Epics')] class extends Component {
                     <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
+
+            <div class="grid grid-cols-2 gap-4">
+                <flux:select wire:model="editTdd" :label="__('TDD')">
+                    <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
+                    <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
+                    <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
+                </flux:select>
+                <flux:select wire:model="editEnvironment" :label="__('Environment')">
+                    <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
+                    <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
+                    <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
+                    <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
+                    <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                </flux:select>
+            </div>
+
+            <flux:textarea wire:model="editAiMode" :label="__('AI mode (optional)')" rows="2" placeholder="{{ __('Describe how AI should behave for this epic...') }}" />
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close>

@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[ObservedBy(TaskObserver::class)]
-#[Fillable(['feature_id', 'title', 'description', 'status', 'priority', 'assigned_to', 'order_index'])]
+#[Fillable(['feature_id', 'title', 'description', 'status', 'priority', 'assigned_to', 'order_index', 'execution_order', 'tdd', 'ai_mode', 'environment'])]
 class Task extends Model
 {
     /** @use HasFactory<TaskFactory> */
@@ -27,6 +27,8 @@ class Task extends Model
             'status' => TaskStatus::class,
             'priority' => 'integer',
             'order_index' => 'integer',
+            'execution_order' => 'integer',
+            'tdd' => 'boolean',
         ];
     }
 
@@ -52,5 +54,20 @@ class Task extends Model
     public function latestHistory(): HasOne
     {
         return $this->hasOne(TaskHistory::class)->latestOfMany();
+    }
+
+    public function resolvedTdd(): ?bool
+    {
+        return $this->tdd ?? $this->feature?->tdd ?? $this->feature?->epic?->tdd;
+    }
+
+    public function resolvedAiMode(): ?string
+    {
+        return $this->ai_mode ?? $this->feature?->ai_mode ?? $this->feature?->epic?->ai_mode;
+    }
+
+    public function resolvedEnvironment(): ?string
+    {
+        return $this->environment ?? $this->feature?->environment ?? $this->feature?->epic?->environment;
     }
 }
