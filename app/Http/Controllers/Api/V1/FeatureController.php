@@ -18,6 +18,11 @@ class FeatureController extends Controller
         return FeatureResource::collection($epic->features()->orderBy('order_index')->get());
     }
 
+    public function show(Feature $feature): FeatureResource
+    {
+        return new FeatureResource($feature);
+    }
+
     public function store(StoreFeatureRequest $request): FeatureResource
     {
         $feature = Feature::create($request->validated());

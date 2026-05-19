@@ -6,14 +6,14 @@ use App\Enums\ActorType;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class TaskHistoryResource extends JsonResource
+class EpicHistoryResource extends JsonResource
 {
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,
-            'task_id' => $this->task_id,
+            'epic_id' => $this->epic_id,
             'actor_type' => $this->actor_type,
             'actor_label' => $this->actor_type === ActorType::Ai ? 'AI' : 'User',
             'actor_name' => $this->actor_name,

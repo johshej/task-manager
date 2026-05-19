@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\EpicController;
+use App\Http\Controllers\Api\V1\EpicHistoryController;
 use App\Http\Controllers\Api\V1\FeatureController;
+use App\Http\Controllers\Api\V1\FeatureHistoryController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\TaskHistoryController;
 use App\Http\Controllers\Api\V1\TokenController;
@@ -13,11 +15,17 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::delete('tokens/{apiToken}', [TokenController::class, 'destroy']);
 
     Route::apiResource('epics', EpicController::class);
-
+    Route::get('epics/{epic}/queue', [EpicController::class, 'queue']);
     Route::get('epics/{epic}/features', [FeatureController::class, 'index']);
+    Route::get('epics/{epic}/history', [EpicHistoryController::class, 'index']);
+    Route::post('epics/{epic}/history', [EpicHistoryController::class, 'store']);
+
+    Route::get('features/{feature}', [FeatureController::class, 'show']);
     Route::post('features', [FeatureController::class, 'store']);
     Route::put('features/{feature}', [FeatureController::class, 'update']);
     Route::delete('features/{feature}', [FeatureController::class, 'destroy']);
+    Route::get('features/{feature}/history', [FeatureHistoryController::class, 'index']);
+    Route::post('features/{feature}/history', [FeatureHistoryController::class, 'store']);
 
     Route::get('features/{feature}/tasks', [TaskController::class, 'index']);
     Route::post('tasks', [TaskController::class, 'store']);
@@ -32,4 +40,5 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::patch('tasks/{task}/execution-order', [TaskController::class, 'updateExecutionOrder']);
 
     Route::get('tasks/{task}/history', [TaskHistoryController::class, 'index']);
+    Route::post('tasks/{task}/history', [TaskHistoryController::class, 'store']);
 });

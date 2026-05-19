@@ -3,14 +3,17 @@
 namespace App\Models;
 
 use App\Enums\FeatureStatus;
+use App\Observers\FeatureObserver;
 use Database\Factories\FeatureFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[ObservedBy(FeatureObserver::class)]
 #[Fillable(['epic_id', 'name', 'description', 'status', 'order_index', 'tdd', 'ai_mode', 'environment'])]
 class Feature extends Model
 {
@@ -36,6 +39,12 @@ class Feature extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
+    }
+
+    /** @return HasMany<FeatureHistory, $this> */
+    public function history(): HasMany
+    {
+        return $this->hasMany(FeatureHistory::class)->orderByDesc('created_at');
     }
 
     public function resolvedTdd(): ?bool

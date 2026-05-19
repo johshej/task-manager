@@ -1,0 +1,16 @@
+{
+    "name": "task-manager/client",
+    "description": "PHP client for the Task Manager API",
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "illuminate/http": "^11|^12|^13"
+    },
+    "autoload": {
+        "psr-4": {
+            "TaskManager\\Client\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

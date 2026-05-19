@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8125e974f7d32f66dd256f642a1696be",
+    "content-hash": "c893f7039d67aa472932a948f8393cc8",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -6168,6 +6168,29 @@
             "time": "2026-03-31T07:15:36+00:00"
         },
         {
+            "name": "task-manager/client",
+            "version": "dev-master",
+            "dist": {
+                "type": "path",
+                "url": "packages/task-manager-client",
+                "reference": "a86683df45173562e5020c02e01852f189bf0ab8"
+            },
+            "require": {
+                "illuminate/http": "^11|^12|^13",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "TaskManager\\Client\\": "src/"
+                }
+            },
+            "description": "PHP client for the Task Manager API",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
             "name": "tijsverkoyen/css-to-inline-styles",
             "version": "v2.4.0",
             "source": {
@@ -10081,7 +10104,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "task-manager/client": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

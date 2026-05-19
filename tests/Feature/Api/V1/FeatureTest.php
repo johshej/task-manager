@@ -69,3 +69,33 @@ test('can delete a feature', function () {
 
     $this->assertModelMissing($feature);
 });
+
+// ── Feature show ──────────────────────────────────────────────────────────────
+
+test('can show a single feature', function () {
+    $feature = Feature::factory()->for($this->epic)->create();
+
+    $this->withToken($this->token)
+        ->getJson("/api/v1/features/{$feature->id}")
+        ->assertSuccessful()
+        ->assertJsonPath('data.id', $feature->id)
+        ->assertJsonPath('data.name', $feature->name)
+        ->assertJsonPath('data.epic_id', $this->epic->id);
+});
+
+test('feature show returns 404 for unknown id', function () {
+    $this->withToken($this->token)
+        ->getJson('/api/v1/features/unknown-id')
+        ->assertNotFound();
+});
+
+test('feature show includes resolved inherited fields', function () {
+    $epic = Epic::factory()->create(['environment' => 'Production', 'tdd' => true]);
+    $feature = Feature::factory()->for($epic)->create(['environment' => null, 'tdd' => null]);
+
+    $this->withToken($this->token)
+        ->getJson("/api/v1/features/{$feature->id}")
+        ->assertSuccessful()
+        ->assertJsonPath('data.resolved_environment', 'Production')
+        ->assertJsonPath('data.resolved_tdd', true);
+});

@@ -5,23 +5,23 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\ActorType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreHistoryRequest;
-use App\Http\Resources\V1\TaskHistoryResource;
+use App\Http\Resources\V1\EpicHistoryResource;
 use App\Models\ApiToken;
-use App\Models\Task;
-use App\Models\TaskHistory;
+use App\Models\Epic;
+use App\Models\EpicHistory;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 
-class TaskHistoryController extends Controller
+class EpicHistoryController extends Controller
 {
-    public function index(Task $task): AnonymousResourceCollection
+    public function index(Epic $epic): AnonymousResourceCollection
     {
-        return TaskHistoryResource::collection(
-            $task->history()->get()
+        return EpicHistoryResource::collection(
+            $epic->history()->get()
         );
     }
 
-    public function store(StoreHistoryRequest $request, Task $task): TaskHistoryResource
+    public function store(StoreHistoryRequest $request, Epic $epic): EpicHistoryResource
     {
         $token = $request->user()?->currentAccessToken();
         $actorType = ActorType::User;
@@ -38,8 +38,8 @@ class TaskHistoryController extends Controller
             $actorName = Auth::user()?->name;
         }
 
-        $history = TaskHistory::create([
-            'task_id' => $task->id,
+        $history = EpicHistory::create([
+            'epic_id' => $epic->id,
             'changed_by_user_id' => $userId,
             'changed_by_token_id' => $tokenId,
             'actor_type' => $actorType,
@@ -47,6 +47,6 @@ class TaskHistoryController extends Controller
             ...$request->validated(),
         ]);
 
-        return new TaskHistoryResource($history);
+        return new EpicHistoryResource($history);
     }
 }

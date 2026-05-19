@@ -5,60 +5,42 @@ namespace App\Observers;
 use App\Enums\ActorType;
 use App\Enums\HistoryAction;
 use App\Models\ApiToken;
-use App\Models\Task;
-use App\Models\TaskHistory;
+use App\Models\Epic;
+use App\Models\EpicHistory;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 
-class TaskObserver
+class EpicObserver
 {
-    public function created(Task $task): void
+    public function created(Epic $epic): void
     {
-        $this->record($task, HistoryAction::Created, null, $task->getAttributes());
+        $this->record($epic, HistoryAction::Created, null, $epic->getAttributes());
     }
 
-    public function updated(Task $task): void
+    public function updated(Epic $epic): void
     {
-        $dirty = $task->getDirty();
+        $dirty = $epic->getDirty();
 
         if (empty($dirty)) {
             return;
         }
 
-        $old = array_intersect_key($task->getOriginal(), $dirty);
-        $action = $this->resolveAction($dirty);
+        $old = array_intersect_key($epic->getOriginal(), $dirty);
 
-        $this->record($task, $action, $old, $dirty);
+        $this->record($epic, HistoryAction::Updated, $old, $dirty);
     }
 
-    public function deleting(Task $task): void
+    public function deleting(Epic $epic): void
     {
-        $this->record($task, HistoryAction::Deleted, $task->getOriginal(), null);
+        $this->record($epic, HistoryAction::Deleted, $epic->getOriginal(), null);
     }
 
-    private function resolveAction(array $dirty): HistoryAction
-    {
-        if (array_key_exists('status', $dirty)) {
-            return HistoryAction::StatusChanged;
-        }
-
-        if (array_key_exists('assigned_to', $dirty)) {
-            return HistoryAction::Assigned;
-        }
-
-        if (array_key_exists('priority', $dirty)) {
-            return HistoryAction::PriorityChanged;
-        }
-
-        return HistoryAction::Updated;
-    }
-
-    private function record(Task $task, HistoryAction $action, ?array $oldValues, ?array $newValues): void
+    private function record(Epic $epic, HistoryAction $action, ?array $oldValues, ?array $newValues): void
     {
         [$actorType, $actorName, $userId, $tokenId] = $this->resolveActor();
 
-        TaskHistory::create([
-            'task_id' => $task->id,
+        EpicHistory::create([
+            'epic_id' => $epic->id,
             'changed_by_user_id' => $userId,
             'changed_by_token_id' => $tokenId,
             'actor_type' => $actorType,

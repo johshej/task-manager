@@ -10,16 +10,18 @@ enum HistoryAction: string
     case Assigned = 'assigned';
     case PriorityChanged = 'priority_changed';
     case Deleted = 'deleted';
+    case Note = 'note';
 
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::Created => 'Created',
             self::Updated => 'Updated',
             self::StatusChanged => 'Status changed',
             self::Assigned => 'Assignee changed',
             self::PriorityChanged => 'Priority changed',
             self::Deleted => 'Deleted',
+            self::Note => 'Note',
         };
     }
 }

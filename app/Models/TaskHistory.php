@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['task_id', 'changed_by_user_id', 'changed_by_token_id', 'actor_type', 'action', 'old_values', 'new_values'])]
+#[Fillable(['task_id', 'changed_by_user_id', 'changed_by_token_id', 'actor_type', 'actor_name', 'action', 'old_values', 'new_values', 'metadata'])]
 class TaskHistory extends Model
 {
     /** @use HasFactory<TaskHistoryFactory> */
@@ -27,6 +27,7 @@ class TaskHistory extends Model
             'action' => HistoryAction::class,
             'old_values' => 'array',
             'new_values' => 'array',
+            'metadata' => 'array',
             'created_at' => 'datetime',
         ];
     }
@@ -51,7 +52,7 @@ class TaskHistory extends Model
 
     public function summary(): string
     {
-        return match($this->action) {
+        return match ($this->action) {
             HistoryAction::Created => 'Task created',
             HistoryAction::Deleted => 'Task deleted',
             HistoryAction::StatusChanged => sprintf(
@@ -66,6 +67,7 @@ class TaskHistory extends Model
             ),
             HistoryAction::Assigned => 'Assignee updated',
             HistoryAction::Updated => 'Task updated',
+            HistoryAction::Note => $this->metadata['message'] ?? 'Note',
         };
     }
 }
