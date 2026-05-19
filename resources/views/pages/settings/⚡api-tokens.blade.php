@@ -66,8 +66,13 @@ new class extends Component {
             <flux:text class="mb-2 text-sm font-medium text-green-800 dark:text-green-300">
                 {{ __('Token created — copy it now, it will not be shown again.') }}
             </flux:text>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2"
+                 x-data="{ copied: false }"
+                 x-on:copy-token.window="copied = false">
                 <flux:input value="{{ $createdTokenPlainText }}" readonly class="font-mono text-xs" />
+                <flux:button size="sm" icon="clipboard-document-check" x-show="copied" disabled>{{ __('Copied!') }}</flux:button>
+                <flux:button size="sm" icon="clipboard-document" x-show="!copied"
+                             x-on:click="navigator.clipboard.writeText('{{ $createdTokenPlainText }}'); copied = true; setTimeout(() => copied = false, 2000)">{{ __('Copy') }}</flux:button>
                 <flux:button size="sm" wire:click="$set('createdTokenPlainText', '')">{{ __('Done') }}</flux:button>
             </div>
         </div>
