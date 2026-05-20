@@ -464,7 +464,7 @@ new #[Title('Epic Board')] class extends Component {
                     @endif
                 </div>
                 @if ($epic->description)
-                    <flux:text class="mt-1 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400">
+                    <flux:text class="mt-1 w-full text-sm text-zinc-500 dark:text-zinc-400 break-words">
                         {{ $epic->description }}
                     </flux:text>
                 @endif
@@ -473,9 +473,9 @@ new #[Title('Epic Board')] class extends Component {
                         href="{{ $epic->repository_url }}"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="mt-1 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400"
+                        class="mt-1 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 break-all"
                     >
-                        <flux:icon.folder-git-2 class="size-3.5" />
+                        <flux:icon.folder-git-2 class="size-3.5 shrink-0" />
                         {{ $epic->repository_url }}
                     </a>
                 @endif
@@ -783,7 +783,7 @@ new #[Title('Epic Board')] class extends Component {
     {{-- ── Modals ───────────────────────────────────────────────────────────── --}}
 
     {{-- Edit Epic Modal --}}
-    <flux:modal name="edit-epic" focusable class="md:w-[520px]">
+    <flux:modal name="edit-epic" focusable class="!w-screen !h-screen !max-w-none !rounded-none overflow-y-auto">
         <form wire:submit="updateEpic" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit epic') }}</flux:heading>
 
@@ -797,7 +797,7 @@ new #[Title('Epic Board')] class extends Component {
                 @endforeach
             </flux:select>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:select wire:model="editEpicTdd" :label="__('TDD')">
                     <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
                     <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
@@ -833,7 +833,7 @@ new #[Title('Epic Board')] class extends Component {
 
             <flux:input wire:model="newFeatureName" :label="__('Name')" autofocus required />
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:select wire:model="newFeatureTdd" :label="__('TDD')">
                     <flux:select.option value="">
                         {{ __('Inherit') }}@if($epic->tdd !== null) ({{ $epic->tdd ? 'Enabled' : 'Disabled' }})@endif
@@ -862,7 +862,7 @@ new #[Title('Epic Board')] class extends Component {
     </flux:modal>
 
     {{-- Edit Feature Modal --}}
-    <flux:modal name="edit-feature" focusable class="md:w-[520px]">
+    <flux:modal name="edit-feature" focusable class="!w-screen !h-screen !max-w-none !rounded-none overflow-y-auto">
         <form wire:submit="updateFeature" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit feature') }}</flux:heading>
 
@@ -874,7 +874,7 @@ new #[Title('Epic Board')] class extends Component {
                 @endforeach
             </flux:select>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:select wire:model="editFeatureTdd" :label="__('TDD')">
                     <flux:select.option value="">
                         {{ __('Inherit') }}@if($epic->tdd !== null) ({{ $epic->tdd ? 'Enabled' : 'Disabled' }})@endif
@@ -919,7 +919,7 @@ new #[Title('Epic Board')] class extends Component {
                 max="10"
             />
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:select wire:model="newTaskTdd" :label="__('TDD')">
                     <flux:select.option value="">
                         {{ __('Inherit') }}@php $rt = $this->addingTaskForFeature?->resolvedTdd(); @endphp@if($rt !== null) ({{ $rt ? 'Enabled' : 'Disabled' }})@endif
@@ -950,7 +950,7 @@ new #[Title('Epic Board')] class extends Component {
     </flux:modal>
 
     {{-- Task Detail Flyout --}}
-    <flux:modal name="task-detail" flyout class="w-full max-w-lg">
+    <flux:modal name="task-detail" flyout class="!w-screen !max-w-none !min-w-0">
         @if ($this->selectedTask)
             <div class="flex h-full flex-col gap-0">
 
@@ -1011,7 +1011,7 @@ new #[Title('Epic Board')] class extends Component {
                             <flux:input wire:model="editTaskTitle" :label="__('Title')" autofocus required />
                             <flux:textarea wire:model="editTaskDescription" :label="__('Description')" rows="3" />
 
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <flux:select wire:model="editTaskStatus" :label="__('Status')">
                                     @foreach (TaskStatus::cases() as $status)
                                         <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
@@ -1026,7 +1026,7 @@ new #[Title('Epic Board')] class extends Component {
                                 />
                             </div>
 
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <flux:select wire:model="editTaskTdd" :label="__('TDD')">
                                     <flux:select.option value="">
                                         {{ __('Inherit') }}@php $pTdd = $this->selectedTask->feature?->resolvedTdd(); @endphp@if($pTdd !== null) ({{ $pTdd ? 'Enabled' : 'Disabled' }})@endif

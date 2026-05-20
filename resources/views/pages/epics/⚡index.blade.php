@@ -139,7 +139,7 @@ new #[Title('Epics')] class extends Component {
 
         <div class="space-y-3">
             @forelse ($this->epics as $epic)
-                <div class="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                     <div class="flex flex-1 items-start gap-4 min-w-0">
                         <div class="flex-1 min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
@@ -160,7 +160,7 @@ new #[Title('Epics')] class extends Component {
                                     href="{{ $epic->repository_url }}"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="mt-1 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400"
+                                    class="mt-1 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 break-all"
                                     wire:navigate.prevent
                                 >
                                     <flux:icon.folder-git-2 class="size-3.5" />
@@ -227,7 +227,7 @@ new #[Title('Epics')] class extends Component {
             <flux:textarea wire:model="description" :label="__('Description (optional)')" rows="3" />
             <flux:input wire:model="repositoryUrl" :label="__('Repository URL (optional)')" type="text" placeholder="https://github.com/org/repo or git@github.com:org/repo.git" />
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:select wire:model="tdd" :label="__('TDD')">
                     <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
                     <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
@@ -254,7 +254,7 @@ new #[Title('Epics')] class extends Component {
     </flux:modal>
 
     {{-- Edit Epic Modal --}}
-    <flux:modal name="edit-epic" focusable class="md:w-[520px]">
+    <flux:modal name="edit-epic" focusable class="!w-screen !h-screen !max-w-none !rounded-none overflow-y-auto">
         <form wire:submit="updateEpic" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit epic') }}</flux:heading>
 
@@ -268,7 +268,7 @@ new #[Title('Epics')] class extends Component {
                 @endforeach
             </flux:select>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:select wire:model="editTdd" :label="__('TDD')">
                     <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
                     <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
@@ -295,7 +295,7 @@ new #[Title('Epics')] class extends Component {
     </flux:modal>
 
     {{-- Delete Epic Modal --}}
-    <flux:modal name="delete-epic" class="min-w-[22rem]">
+    <flux:modal name="delete-epic" class="w-full sm:min-w-[22rem]">
         <div class="space-y-6">
             <div>
                 <flux:heading size="lg">{{ __('Delete epic') }}</flux:heading>
