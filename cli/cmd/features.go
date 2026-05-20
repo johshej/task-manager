@@ -14,9 +14,9 @@ var featuresCmd = &cobra.Command{
 }
 
 var featuresListCmd = &cobra.Command{
-	Use:     "list <epic-id>",
-	Short:   "List features for an epic",
-	Args:    cobra.ExactArgs(1),
+	Use:   "list <epic-id>",
+	Short: "List features for an epic",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		features, err := apiClient.ListFeatures(args[0])
 		if err != nil {
@@ -37,6 +37,35 @@ var featuresGetCmd = &cobra.Command{
 			return err
 		}
 		output.Item(feature, jsonFlag)
+		return nil
+	},
+}
+
+var featuresUpdateCmd = &cobra.Command{
+	Use:   "update <id>",
+	Short: "Update a feature",
+	Example: `  tm features update abc123 --name "New name"
+  tm features update abc123 --status done
+  tm features update abc123 --environment Production`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fields := collectFlags(cmd, "name", "description", "status", "environment", "ai_mode")
+		if cmd.Flags().Changed("tdd") {
+			val, _ := cmd.Flags().GetBool("tdd")
+			fields["tdd"] = val
+		}
+		if len(fields) == 0 {
+			return fmt.Errorf("at least one field flag is required")
+		}
+		feature, err := apiClient.UpdateFeature(args[0], fields)
+		if err != nil {
+			return err
+		}
+		if jsonFlag {
+			output.JSON(feature)
+		} else {
+			fmt.Println("Feature updated.")
+		}
 		return nil
 	},
 }
@@ -80,8 +109,15 @@ var featuresNoteCmd = &cobra.Command{
 }
 
 func init() {
+	featuresUpdateCmd.Flags().String("name", "", "Feature name")
+	featuresUpdateCmd.Flags().String("description", "", "Feature description")
+	featuresUpdateCmd.Flags().String("status", "", "Feature status")
+	featuresUpdateCmd.Flags().String("environment", "", "Environment (Development, Production, Staging, Other)")
+	featuresUpdateCmd.Flags().String("ai_mode", "", "AI mode")
+	featuresUpdateCmd.Flags().Bool("tdd", false, "Enable TDD mode")
+
 	addNoteFlags(featuresNoteCmd)
 
-	featuresCmd.AddCommand(featuresListCmd, featuresGetCmd, featuresHistoryCmd, featuresNoteCmd)
+	featuresCmd.AddCommand(featuresListCmd, featuresGetCmd, featuresUpdateCmd, featuresHistoryCmd, featuresNoteCmd)
 	rootCmd.AddCommand(featuresCmd)
 }

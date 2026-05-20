@@ -44,6 +44,34 @@ var epicsGetCmd = &cobra.Command{
 	},
 }
 
+var epicsUpdateCmd = &cobra.Command{
+	Use:   "update <id>",
+	Short: "Update an epic",
+	Example: `  tm epics update abc123 --name "New name"
+  tm epics update abc123 --repo git@github.com:user/repo.git
+  tm epics update abc123 --status active`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fields := collectFlags(cmd, "name", "description", "status")
+		if repo, _ := cmd.Flags().GetString("repo"); cmd.Flags().Changed("repo") {
+			fields["repository_url"] = repo
+		}
+		if len(fields) == 0 {
+			return fmt.Errorf("at least one field flag is required")
+		}
+		epic, err := apiClient.UpdateEpic(args[0], fields)
+		if err != nil {
+			return err
+		}
+		if jsonFlag {
+			output.JSON(epic)
+		} else {
+			fmt.Println("Epic updated.")
+		}
+		return nil
+	},
+}
+
 var epicsQueueCmd = &cobra.Command{
 	Use:   "queue <epic-id>",
 	Short: "Show the AI execution queue for an epic",
@@ -122,11 +150,28 @@ func addNoteFlags(cmd *cobra.Command) {
 	cmd.Flags().String("metadata", "", "Note metadata as JSON")
 }
 
+// collectFlags returns a map of only the flags that were explicitly set.
+func collectFlags(cmd *cobra.Command, names ...string) map[string]any {
+	fields := map[string]any{}
+	for _, name := range names {
+		if cmd.Flags().Changed(name) {
+			val, _ := cmd.Flags().GetString(name)
+			fields[name] = val
+		}
+	}
+	return fields
+}
+
 func init() {
 	epicsListCmd.Flags().String("repo", "", "Filter by repository URL")
 
+	epicsUpdateCmd.Flags().String("name", "", "Epic name")
+	epicsUpdateCmd.Flags().String("description", "", "Epic description")
+	epicsUpdateCmd.Flags().String("repo", "", "Repository URL (git@github.com:user/repo.git or https://...)")
+	epicsUpdateCmd.Flags().String("status", "", "Epic status")
+
 	addNoteFlags(epicsNoteCmd)
 
-	epicsCmd.AddCommand(epicsListCmd, epicsGetCmd, epicsQueueCmd, epicsHistoryCmd, epicsNoteCmd)
+	epicsCmd.AddCommand(epicsListCmd, epicsGetCmd, epicsUpdateCmd, epicsQueueCmd, epicsHistoryCmd, epicsNoteCmd)
 	rootCmd.AddCommand(epicsCmd)
 }

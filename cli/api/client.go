@@ -144,6 +144,14 @@ func (c *Client) GetEpic(id string) (map[string]any, error) {
 	return toMap(data)
 }
 
+func (c *Client) UpdateEpic(id string, fields map[string]any) (map[string]any, error) {
+	data, err := c.do("PATCH", "epics/"+id, fields, nil)
+	if err != nil {
+		return nil, err
+	}
+	return toMap(data)
+}
+
 func (c *Client) GetEpicQueue(id string) ([]map[string]any, error) {
 	data, err := c.do("GET", "epics/"+id+"/queue", nil, nil)
 	if err != nil {
@@ -186,6 +194,14 @@ func (c *Client) GetFeature(id string) (map[string]any, error) {
 	return toMap(data)
 }
 
+func (c *Client) UpdateFeature(id string, fields map[string]any) (map[string]any, error) {
+	data, err := c.do("PATCH", "features/"+id, fields, nil)
+	if err != nil {
+		return nil, err
+	}
+	return toMap(data)
+}
+
 func (c *Client) GetFeatureHistory(id string) ([]map[string]any, error) {
 	data, err := c.do("GET", "features/"+id+"/history", nil, nil)
 	if err != nil {
@@ -214,6 +230,14 @@ func (c *Client) ListTasks(featureID string) ([]map[string]any, error) {
 
 func (c *Client) GetTask(id string) (map[string]any, error) {
 	data, err := c.do("GET", "tasks/"+id, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return toMap(data)
+}
+
+func (c *Client) UpdateTask(id string, fields map[string]any) (map[string]any, error) {
+	data, err := c.do("PATCH", "tasks/"+id, fields, nil)
 	if err != nil {
 		return nil, err
 	}
