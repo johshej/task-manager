@@ -254,7 +254,7 @@ new #[Title('Epics')] class extends Component {
     </flux:modal>
 
     {{-- Edit Epic Modal --}}
-    <flux:modal name="edit-epic" focusable class="!w-screen !h-screen !max-w-none !rounded-none overflow-y-auto">
+    <flux:modal name="edit-epic" focusable class="modal-fullscreen">
         <form wire:submit="updateEpic" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit epic') }}</flux:heading>
 

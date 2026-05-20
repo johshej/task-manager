@@ -783,7 +783,7 @@ new #[Title('Epic Board')] class extends Component {
     {{-- ── Modals ───────────────────────────────────────────────────────────── --}}
 
     {{-- Edit Epic Modal --}}
-    <flux:modal name="edit-epic" focusable class="!w-screen !h-screen !max-w-none !rounded-none overflow-y-auto">
+    <flux:modal name="edit-epic" focusable class="modal-fullscreen">
         <form wire:submit="updateEpic" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit epic') }}</flux:heading>
 
@@ -862,7 +862,7 @@ new #[Title('Epic Board')] class extends Component {
     </flux:modal>
 
     {{-- Edit Feature Modal --}}
-    <flux:modal name="edit-feature" focusable class="!w-screen !h-screen !max-w-none !rounded-none overflow-y-auto">
+    <flux:modal name="edit-feature" focusable class="modal-fullscreen">
         <form wire:submit="updateFeature" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit feature') }}</flux:heading>
 
@@ -950,7 +950,7 @@ new #[Title('Epic Board')] class extends Component {
     </flux:modal>
 
     {{-- Task Detail Flyout --}}
-    <flux:modal name="task-detail" flyout class="!w-screen !max-w-none !min-w-0">
+    <flux:modal name="task-detail" flyout class="modal-fullscreen">
         @if ($this->selectedTask)
             <div class="flex h-full flex-col gap-0">
 
