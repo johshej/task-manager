@@ -1,5 +1,5 @@
 BINARY := tm
-INSTALL_DIR := $(HOME)/.local/bin
+INSTALL_DIR := $(HOME)/bin
 
 .PHONY: build install tidy clean
 
