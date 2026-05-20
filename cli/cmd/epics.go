@@ -1,0 +1,132 @@
+package cmd
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"task-manager-cli/output"
+)
+
+var epicsCmd = &cobra.Command{
+	Use:               "epics",
+	Short:             "Manage epics",
+	PersistentPreRunE: requireClient,
+}
+
+var epicsListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List epics",
+	Example: `  tm epics list
+  tm epics list --repo git@github.com:user/repo.git`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		repo, _ := cmd.Flags().GetString("repo")
+		epics, err := apiClient.ListEpics(repo)
+		if err != nil {
+			return err
+		}
+		output.Epics(epics, jsonFlag)
+		return nil
+	},
+}
+
+var epicsGetCmd = &cobra.Command{
+	Use:   "get <id>",
+	Short: "Show a single epic",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		epic, err := apiClient.GetEpic(args[0])
+		if err != nil {
+			return err
+		}
+		output.Item(epic, jsonFlag)
+		return nil
+	},
+}
+
+var epicsQueueCmd = &cobra.Command{
+	Use:   "queue <epic-id>",
+	Short: "Show the AI execution queue for an epic",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		tasks, err := apiClient.GetEpicQueue(args[0])
+		if err != nil {
+			return err
+		}
+		output.Queue(tasks, jsonFlag)
+		return nil
+	},
+}
+
+var epicsHistoryCmd = &cobra.Command{
+	Use:   "history <epic-id>",
+	Short: "Show history for an epic",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		entries, err := apiClient.GetEpicHistory(args[0])
+		if err != nil {
+			return err
+		}
+		output.History(entries, jsonFlag)
+		return nil
+	},
+}
+
+var epicsNoteCmd = &cobra.Command{
+	Use:   "note <epic-id>",
+	Short: "Add a note to an epic's history",
+	Example: `  tm epics note abc123 --message "Started scoping"
+  tm epics note abc123 --metadata '{"message":"done","model":"claude-sonnet-4-6"}'`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		metadata, err := buildMetadata(cmd)
+		if err != nil {
+			return err
+		}
+		entry, err := apiClient.AddEpicNote(args[0], metadata)
+		if err != nil {
+			return err
+		}
+		if jsonFlag {
+			output.JSON(entry)
+		} else {
+			fmt.Println("Note added.")
+		}
+		return nil
+	},
+}
+
+func buildMetadata(cmd *cobra.Command) (map[string]any, error) {
+	message, _ := cmd.Flags().GetString("message")
+	metaStr, _ := cmd.Flags().GetString("metadata")
+
+	if metaStr != "" {
+		var meta map[string]any
+		if err := json.Unmarshal([]byte(metaStr), &meta); err != nil {
+			return nil, fmt.Errorf("--metadata must be valid JSON: %w", err)
+		}
+		if message != "" {
+			meta["message"] = message
+		}
+		return meta, nil
+	}
+
+	if message == "" {
+		return nil, fmt.Errorf("--message or --metadata is required")
+	}
+	return map[string]any{"message": message}, nil
+}
+
+func addNoteFlags(cmd *cobra.Command) {
+	cmd.Flags().String("message", "", "Note message (shorthand for --metadata '{\"message\":\"...\"}')")
+	cmd.Flags().String("metadata", "", "Note metadata as JSON")
+}
+
+func init() {
+	epicsListCmd.Flags().String("repo", "", "Filter by repository URL")
+
+	addNoteFlags(epicsNoteCmd)
+
+	epicsCmd.AddCommand(epicsListCmd, epicsGetCmd, epicsQueueCmd, epicsHistoryCmd, epicsNoteCmd)
+	rootCmd.AddCommand(epicsCmd)
+}
