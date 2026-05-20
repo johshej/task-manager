@@ -22,6 +22,7 @@ class StoreHistoryRequest extends FormRequest
             'old_values' => ['nullable', 'array'],
             'new_values' => ['nullable', 'array'],
             'metadata' => ['nullable', 'array'],
+            'body' => ['nullable', 'string'],
         ];
     }
 }

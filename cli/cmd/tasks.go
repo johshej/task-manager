@@ -118,11 +118,11 @@ var tasksNoteCmd = &cobra.Command{
   tm tasks note abc123 --metadata '{"message":"done","model":"claude-sonnet-4-6","duration_ms":4500}'`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		metadata, err := buildMetadata(cmd)
+		body, meta, err := buildNote(cmd)
 		if err != nil {
 			return err
 		}
-		entry, err := apiClient.AddTaskNote(args[0], metadata)
+		entry, err := apiClient.AddTaskNote(args[0], body, meta)
 		if err != nil {
 			return err
 		}

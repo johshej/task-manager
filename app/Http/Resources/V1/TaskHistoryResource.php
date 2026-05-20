@@ -21,6 +21,7 @@ class TaskHistoryResource extends JsonResource
             'old_values' => $this->old_values,
             'new_values' => $this->new_values,
             'metadata' => $this->metadata,
+            'body' => $this->body,
             'created_at' => $this->created_at,
         ];
     }

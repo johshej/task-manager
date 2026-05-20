@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['task_id', 'changed_by_user_id', 'changed_by_token_id', 'actor_type', 'actor_name', 'action', 'old_values', 'new_values', 'metadata'])]
+#[Fillable(['task_id', 'changed_by_user_id', 'changed_by_token_id', 'actor_type', 'actor_name', 'action', 'old_values', 'new_values', 'metadata', 'body'])]
 class TaskHistory extends Model
 {
     /** @use HasFactory<TaskHistoryFactory> */
@@ -67,7 +67,7 @@ class TaskHistory extends Model
             ),
             HistoryAction::Assigned => 'Assignee updated',
             HistoryAction::Updated => 'Task updated',
-            HistoryAction::Note => $this->metadata['message'] ?? 'Note',
+            HistoryAction::Note => $this->body ?? $this->metadata['message'] ?? 'Note',
         };
     }
 }

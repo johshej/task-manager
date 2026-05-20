@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Enums\ActorType;
+use App\Enums\FeatureStatus;
 use App\Enums\HistoryAction;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['feature_id', 'changed_by_user_id', 'changed_by_token_id', 'actor_type', 'actor_name', 'action', 'old_values', 'new_values', 'metadata'])]
+#[Fillable(['feature_id', 'changed_by_user_id', 'changed_by_token_id', 'actor_type', 'actor_name', 'action', 'old_values', 'new_values', 'metadata', 'body'])]
 class FeatureHistory extends Model
 {
     use HasUuids;
@@ -44,5 +45,21 @@ class FeatureHistory extends Model
     public function changedByToken(): BelongsTo
     {
         return $this->belongsTo(ApiToken::class, 'changed_by_token_id');
+    }
+
+    public function summary(): string
+    {
+        return match ($this->action) {
+            HistoryAction::Created => 'Feature created',
+            HistoryAction::Deleted => 'Feature deleted',
+            HistoryAction::StatusChanged => sprintf(
+                'Status: %s → %s',
+                FeatureStatus::tryFrom($this->old_values['status'] ?? '')?->label() ?? '?',
+                FeatureStatus::tryFrom($this->new_values['status'] ?? '')?->label() ?? '?',
+            ),
+            HistoryAction::Updated => 'Feature updated',
+            HistoryAction::Note => $this->body ?? $this->metadata['message'] ?? 'Note',
+            default => $this->action->label(),
+        };
     }
 }

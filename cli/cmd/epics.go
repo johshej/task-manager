@@ -107,11 +107,11 @@ var epicsNoteCmd = &cobra.Command{
   tm epics note abc123 --metadata '{"message":"done","model":"claude-sonnet-4-6"}'`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		metadata, err := buildMetadata(cmd)
+		body, meta, err := buildNote(cmd)
 		if err != nil {
 			return err
 		}
-		entry, err := apiClient.AddEpicNote(args[0], metadata)
+		entry, err := apiClient.AddEpicNote(args[0], body, meta)
 		if err != nil {
 			return err
 		}
@@ -124,30 +124,28 @@ var epicsNoteCmd = &cobra.Command{
 	},
 }
 
-func buildMetadata(cmd *cobra.Command) (map[string]any, error) {
+// buildNote returns the body text and optional metadata map from note flags.
+func buildNote(cmd *cobra.Command) (string, map[string]any, error) {
 	message, _ := cmd.Flags().GetString("message")
 	metaStr, _ := cmd.Flags().GetString("metadata")
 
+	var meta map[string]any
 	if metaStr != "" {
-		var meta map[string]any
 		if err := json.Unmarshal([]byte(metaStr), &meta); err != nil {
-			return nil, fmt.Errorf("--metadata must be valid JSON: %w", err)
+			return "", nil, fmt.Errorf("--metadata must be valid JSON: %w", err)
 		}
-		if message != "" {
-			meta["message"] = message
-		}
-		return meta, nil
 	}
 
-	if message == "" {
-		return nil, fmt.Errorf("--message or --metadata is required")
+	if message == "" && metaStr == "" {
+		return "", nil, fmt.Errorf("--message or --metadata is required")
 	}
-	return map[string]any{"message": message}, nil
+
+	return message, meta, nil
 }
 
 func addNoteFlags(cmd *cobra.Command) {
-	cmd.Flags().String("message", "", "Note message (shorthand for --metadata '{\"message\":\"...\"}')")
-	cmd.Flags().String("metadata", "", "Note metadata as JSON")
+	cmd.Flags().String("message", "", "Note body text")
+	cmd.Flags().String("metadata", "", "Extra metadata as JSON (model, duration_ms, etc.)")
 }
 
 // collectFlags returns a map of only the flags that were explicitly set.

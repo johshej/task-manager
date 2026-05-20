@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\ActorType;
 use App\Enums\EpicStatus;
+use App\Enums\HistoryAction;
 use App\Models\Epic;
+use App\Models\EpicHistory;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -27,6 +30,8 @@ new #[Title('Epics')] class extends Component {
     public string $editEnvironment = '';
 
     public ?string $deletingEpicId = null;
+
+    public string $epicReplyBody = '';
 
     private function tddNullable(string $value): ?bool
     {
@@ -118,11 +123,40 @@ new #[Title('Epics')] class extends Component {
         Flux::toast(variant: 'success', text: 'Epic deleted.');
     }
 
+    public function addEpicReply(): void
+    {
+        $this->validate(['epicReplyBody' => ['required', 'string', 'max:10000']]);
+
+        EpicHistory::create([
+            'epic_id' => $this->editingEpicId,
+            'changed_by_user_id' => auth()->id(),
+            'actor_type' => ActorType::User,
+            'actor_name' => auth()->user()?->name,
+            'action' => HistoryAction::Note,
+            'body' => $this->epicReplyBody,
+        ]);
+
+        $this->epicReplyBody = '';
+        unset($this->editingEpic);
+    }
+
     /** @return Collection<int, Epic> */
     #[Computed]
     public function epics(): Collection
     {
         return Epic::withCount('features')->latest()->get();
+    }
+
+    #[Computed]
+    public function editingEpic(): ?Epic
+    {
+        if (! $this->editingEpicId) {
+            return null;
+        }
+
+        return Epic::with([
+            'history' => fn ($q) => $q->with('changedByUser', 'changedByToken')->oldest('created_at'),
+        ])->find($this->editingEpicId);
     }
 }; ?>
 
@@ -255,43 +289,122 @@ new #[Title('Epics')] class extends Component {
 
     {{-- Edit Epic Modal --}}
     <flux:modal name="edit-epic" focusable class="modal-fullscreen">
-        <form wire:submit="updateEpic" class="space-y-5">
-            <flux:heading size="lg">{{ __('Edit epic') }}</flux:heading>
+        <div class="flex h-full flex-col">
+            <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit epic') }}</flux:heading>
 
-            <flux:input wire:model="editName" :label="__('Name')" autofocus required />
-            <flux:textarea wire:model="editDescription" :label="__('Description (optional)')" rows="3" />
-            <flux:input wire:model="editRepositoryUrl" :label="__('Repository URL (optional)')" type="text" placeholder="https://github.com/org/repo or git@github.com:org/repo.git" />
+            <div class="flex min-h-0 flex-1 gap-8">
+                {{-- Form --}}
+                <div class="flex w-full flex-col overflow-y-auto md:w-96 md:shrink-0">
+                    <form wire:submit="updateEpic" id="edit-epic-form" class="flex-1 space-y-5">
+                        <flux:input wire:model="editName" :label="__('Name')" autofocus required />
+                        <flux:textarea wire:model="editDescription" :label="__('Description (optional)')" rows="3" />
+                        <flux:input wire:model="editRepositoryUrl" :label="__('Repository URL (optional)')" type="text" placeholder="https://github.com/org/repo or git@github.com:org/repo.git" />
 
-            <flux:select wire:model="editStatus" :label="__('Status')">
-                @foreach (EpicStatus::cases() as $status)
-                    <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
-                @endforeach
-            </flux:select>
+                        <flux:select wire:model="editStatus" :label="__('Status')">
+                            @foreach (EpicStatus::cases() as $status)
+                                <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <flux:select wire:model="editTdd" :label="__('TDD')">
-                    <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
-                    <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
-                    <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
-                </flux:select>
-                <flux:select wire:model="editEnvironment" :label="__('Environment')">
-                    <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
-                    <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
-                    <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
-                    <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
-                    <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
-                </flux:select>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <flux:select wire:model="editTdd" :label="__('TDD')">
+                                <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
+                                <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
+                                <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
+                            </flux:select>
+                            <flux:select wire:model="editEnvironment" :label="__('Environment')">
+                                <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
+                                <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
+                                <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
+                                <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
+                                <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                            </flux:select>
+                        </div>
+
+                        <flux:textarea wire:model="editAiMode" :label="__('AI mode (optional)')" rows="2" placeholder="{{ __('Describe how AI should behave for this epic...') }}" />
+                    </form>
+
+                    <div class="mt-5 flex shrink-0 justify-end gap-2">
+                        <flux:modal.close>
+                            <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                        </flux:modal.close>
+                        <flux:button variant="primary" form="edit-epic-form" type="submit">{{ __('Save changes') }}</flux:button>
+                    </div>
+                </div>
+
+                {{-- Conversation thread --}}
+                <div class="hidden min-h-0 flex-1 flex-col border-l border-zinc-200 pl-8 dark:border-zinc-700 md:flex">
+                    <flux:heading size="sm" class="mb-3 shrink-0 font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                        {{ __('Thread') }}
+                    </flux:heading>
+
+                    <div class="flex-1 space-y-2 overflow-y-auto pb-2">
+                        @if ($this->editingEpic)
+                            @forelse ($this->editingEpic->history as $entry)
+                                @if ($entry->action === HistoryAction::Note)
+                                    <div @class([
+                                        'rounded-xl p-4',
+                                        'bg-purple-50 dark:bg-purple-950/30' => $entry->actor_type === ActorType::Ai,
+                                        'bg-zinc-50 dark:bg-zinc-800/40' => $entry->actor_type !== ActorType::Ai,
+                                    ])>
+                                        <div class="mb-2 flex items-center justify-between gap-2">
+                                            <div class="flex items-center gap-2">
+                                                @if ($entry->actor_type === ActorType::Ai)
+                                                    <flux:badge color="purple" size="sm" icon="cpu-chip">
+                                                        {{ $entry->changedByToken?->name ?? 'AI' }}
+                                                    </flux:badge>
+                                                @else
+                                                    <flux:badge color="zinc" size="sm" icon="user">
+                                                        {{ $entry->changedByUser?->name ?? $entry->actor_name ?? 'User' }}
+                                                    </flux:badge>
+                                                @endif
+                                            </div>
+                                            <span class="shrink-0 text-xs text-zinc-400">{{ $entry->created_at->diffForHumans() }}</span>
+                                        </div>
+                                        @if ($entry->body)
+                                            <p class="whitespace-pre-wrap text-sm text-zinc-800 dark:text-zinc-200">{{ $entry->body }}</p>
+                                        @elseif (isset($entry->metadata['message']))
+                                            <p class="text-sm text-zinc-800 dark:text-zinc-200">{{ $entry->metadata['message'] }}</p>
+                                        @endif
+                                        @php $eMeta = $entry->metadata ?? []; @endphp
+                                        @if (isset($eMeta['model']) || isset($eMeta['duration_ms']))
+                                            <div class="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400">
+                                                @if (isset($eMeta['model']))<span>{{ $eMeta['model'] }}</span>@endif
+                                                @if (isset($eMeta['duration_ms']))<span>{{ number_format($eMeta['duration_ms'] / 1000, 1) }}s</span>@endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <div class="flex items-center gap-2 px-1 py-1 text-xs text-zinc-400 dark:text-zinc-500">
+                                        <span class="size-1.5 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                                        <span class="flex-1">{{ $entry->summary() }}</span>
+                                        <span class="shrink-0">{{ $entry->created_at->diffForHumans() }}</span>
+                                    </div>
+                                @endif
+                            @empty
+                                <flux:text class="text-sm text-zinc-400">{{ __('No history yet.') }}</flux:text>
+                            @endforelse
+                        @endif
+                    </div>
+
+                    <div class="mt-3 shrink-0 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                        <flux:textarea
+                            wire:model="epicReplyBody"
+                            :placeholder="__('Add a note...')"
+                            rows="3"
+                        />
+                        <div class="mt-2 flex justify-end">
+                            <flux:button
+                                variant="primary"
+                                size="sm"
+                                wire:click="addEpicReply"
+                                :disabled="! trim($epicReplyBody)"
+                            >{{ __('Send') }}</flux:button>
+                        </div>
+                    </div>
+                </div>
             </div>
-
-            <flux:textarea wire:model="editAiMode" :label="__('AI mode (optional)')" rows="2" placeholder="{{ __('Describe how AI should behave for this epic...') }}" />
-
-            <div class="flex justify-end gap-2">
-                <flux:modal.close>
-                    <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                </flux:modal.close>
-                <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
-            </div>
-        </form>
+        </div>
     </flux:modal>
 
     {{-- Delete Epic Modal --}}

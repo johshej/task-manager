@@ -168,8 +168,12 @@ func (c *Client) GetEpicHistory(id string) ([]map[string]any, error) {
 	return toSlice(data)
 }
 
-func (c *Client) AddEpicNote(id string, metadata map[string]any) (map[string]any, error) {
-	data, err := c.do("POST", "epics/"+id+"/history", map[string]any{"action": "note", "metadata": metadata}, nil)
+func (c *Client) AddEpicNote(id, body string, metadata map[string]any) (map[string]any, error) {
+	payload := map[string]any{"action": "note", "body": body}
+	if len(metadata) > 0 {
+		payload["metadata"] = metadata
+	}
+	data, err := c.do("POST", "epics/"+id+"/history", payload, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +214,12 @@ func (c *Client) GetFeatureHistory(id string) ([]map[string]any, error) {
 	return toSlice(data)
 }
 
-func (c *Client) AddFeatureNote(id string, metadata map[string]any) (map[string]any, error) {
-	data, err := c.do("POST", "features/"+id+"/history", map[string]any{"action": "note", "metadata": metadata}, nil)
+func (c *Client) AddFeatureNote(id, body string, metadata map[string]any) (map[string]any, error) {
+	payload := map[string]any{"action": "note", "body": body}
+	if len(metadata) > 0 {
+		payload["metadata"] = metadata
+	}
+	data, err := c.do("POST", "features/"+id+"/history", payload, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +268,12 @@ func (c *Client) GetTaskHistory(id string) ([]map[string]any, error) {
 	return toSlice(data)
 }
 
-func (c *Client) AddTaskNote(id string, metadata map[string]any) (map[string]any, error) {
-	data, err := c.do("POST", "tasks/"+id+"/history", map[string]any{"action": "note", "metadata": metadata}, nil)
+func (c *Client) AddTaskNote(id, body string, metadata map[string]any) (map[string]any, error) {
+	payload := map[string]any{"action": "note", "body": body}
+	if len(metadata) > 0 {
+		payload["metadata"] = metadata
+	}
+	data, err := c.do("POST", "tasks/"+id+"/history", payload, nil)
 	if err != nil {
 		return nil, err
 	}

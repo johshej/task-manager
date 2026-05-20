@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Enums\ActorType;
+use App\Enums\EpicStatus;
 use App\Enums\HistoryAction;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['epic_id', 'changed_by_user_id', 'changed_by_token_id', 'actor_type', 'actor_name', 'action', 'old_values', 'new_values', 'metadata'])]
+#[Fillable(['epic_id', 'changed_by_user_id', 'changed_by_token_id', 'actor_type', 'actor_name', 'action', 'old_values', 'new_values', 'metadata', 'body'])]
 class EpicHistory extends Model
 {
     use HasUuids;
@@ -44,5 +45,21 @@ class EpicHistory extends Model
     public function changedByToken(): BelongsTo
     {
         return $this->belongsTo(ApiToken::class, 'changed_by_token_id');
+    }
+
+    public function summary(): string
+    {
+        return match ($this->action) {
+            HistoryAction::Created => 'Epic created',
+            HistoryAction::Deleted => 'Epic deleted',
+            HistoryAction::StatusChanged => sprintf(
+                'Status: %s → %s',
+                EpicStatus::tryFrom($this->old_values['status'] ?? '')?->label() ?? '?',
+                EpicStatus::tryFrom($this->new_values['status'] ?? '')?->label() ?? '?',
+            ),
+            HistoryAction::Updated => 'Epic updated',
+            HistoryAction::Note => $this->body ?? $this->metadata['message'] ?? 'Note',
+            default => $this->action->label(),
+        };
     }
 }

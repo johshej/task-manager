@@ -91,11 +91,11 @@ var featuresNoteCmd = &cobra.Command{
   tm features note f1 --metadata '{"message":"done","tags":["review"]}'`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		metadata, err := buildMetadata(cmd)
+		body, meta, err := buildNote(cmd)
 		if err != nil {
 			return err
 		}
-		entry, err := apiClient.AddFeatureNote(args[0], metadata)
+		entry, err := apiClient.AddFeatureNote(args[0], body, meta)
 		if err != nil {
 			return err
 		}
