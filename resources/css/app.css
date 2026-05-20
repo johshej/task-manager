@@ -65,6 +65,12 @@ select:focus[data-flux-control] {
     @apply size-4;
 } */
 
+[data-selectable].active {
+    outline: 2px solid rgb(59 130 246);
+    outline-offset: 2px;
+    border-radius: 12px;
+}
+
 [data-flux-modal] > dialog.modal-fullscreen {
     max-width: none;
     max-height: none;

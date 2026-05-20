@@ -102,5 +102,12 @@
         @endpersist
 
         @fluxScripts
+        <script>
+            window.AppRoutes = {
+                epics: '{{ route('epics') }}',
+                settings: '{{ route('profile.edit') }}',
+            };
+        </script>
+        <script src="{{ asset('js/shortcuts.js') }}"></script>
     </body>
 </html>

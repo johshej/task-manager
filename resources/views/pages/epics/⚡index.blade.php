@@ -160,20 +160,24 @@ new #[Title('Epics')] class extends Component {
     }
 }; ?>
 
-<div class="flex h-full w-full flex-1 flex-col gap-6 p-6">
+<div class="flex h-full w-full flex-1 flex-col gap-6 p-6" data-view="epics-index">
         <div class="flex items-center justify-between">
             <div>
                 <flux:heading size="xl">{{ __('Epics') }}</flux:heading>
                 <flux:subheading>{{ __('High-level bodies of work broken into features and tasks.') }}</flux:subheading>
             </div>
-            <flux:modal.trigger name="create-epic">
+            <flux:modal.trigger name="create-epic" data-shortcut="new-epic">
                 <flux:button variant="primary" icon="plus">{{ __('New epic') }}</flux:button>
             </flux:modal.trigger>
         </div>
 
-        <div class="space-y-3">
+        <div class="space-y-3" data-list="epics">
             @forelse ($this->epics as $epic)
-                <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <div
+                    data-selectable
+                    data-href="{{ route('epics.board', $epic) }}"
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                >
                     <div class="flex flex-1 items-start gap-4 min-w-0">
                         <div class="flex-1 min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
@@ -221,6 +225,7 @@ new #[Title('Epics')] class extends Component {
                                 variant="ghost"
                                 size="sm"
                                 icon="pencil"
+                                data-edit-btn
                                 wire:click="editEpic('{{ $epic->id }}')"
                             />
                         </flux:tooltip>

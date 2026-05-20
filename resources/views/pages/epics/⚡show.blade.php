@@ -523,7 +523,7 @@ new #[Title('Epic Board')] class extends Component {
     }
 }; ?>
 
-<div class="flex h-full w-full flex-1 flex-col gap-6 p-6">
+<div class="flex h-full w-full flex-1 flex-col gap-6 p-6" data-view="epic-board">
 
     {{-- Page header --}}
     <div class="flex items-start justify-between gap-4">
@@ -572,7 +572,7 @@ new #[Title('Epic Board')] class extends Component {
             <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEditEpic">
                 {{ __('Edit epic') }}
             </flux:button>
-            <flux:button variant="primary" size="sm" icon="plus" wire:click="openAddFeature">
+            <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-feature" wire:click="openAddFeature">
                 {{ __('Add feature') }}
             </flux:button>
         </div>
@@ -584,16 +584,19 @@ new #[Title('Epic Board')] class extends Component {
             <flux:button
                 variant="{{ $viewMode === 'board' ? 'filled' : 'ghost' }}"
                 size="sm"
+                data-shortcut="view-board"
                 wire:click="$set('viewMode', 'board')"
             >{{ __('Board') }}</flux:button>
             <flux:button
                 variant="{{ $viewMode === 'kanban' ? 'filled' : 'ghost' }}"
                 size="sm"
+                data-shortcut="view-kanban"
                 wire:click="$set('viewMode', 'kanban')"
             >{{ __('Kanban') }}</flux:button>
             <flux:button
                 variant="{{ $viewMode === 'sort' ? 'filled' : 'ghost' }}"
                 size="sm"
+                data-shortcut="view-sort"
                 wire:click="$set('viewMode', 'sort')"
             >{{ __('AI Queue') }}</flux:button>
         </div>
@@ -601,6 +604,7 @@ new #[Title('Epic Board')] class extends Component {
             variant="{{ $showFilters ? 'filled' : 'ghost' }}"
             size="sm"
             icon="funnel"
+            data-shortcut="toggle-filters"
             wire:click="$toggle('showFilters')"
         >
             {{ __('Filter') }}
