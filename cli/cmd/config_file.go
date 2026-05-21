@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -90,4 +91,54 @@ func resolveProfile(cfg *Config, profileFlag string) (Profile, string, error) {
 	}
 
 	return p, name, nil
+}
+
+// ProjectFile holds values from a .task-manager file in the project directory.
+type ProjectFile struct {
+	URL    string
+	Token  string
+	EpicID string
+}
+
+// findProjectFile walks up from cwd looking for .task-manager and parses it.
+func findProjectFile() (*ProjectFile, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, ".task-manager"))
+		if err == nil {
+			return parseProjectFile(data)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return nil, nil
+}
+
+func parseProjectFile(data []byte) (*ProjectFile, error) {
+	pf := &ProjectFile{}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		switch strings.TrimSpace(parts[0]) {
+		case "URL":
+			pf.URL = strings.TrimSpace(parts[1])
+		case "TOKEN":
+			pf.Token = strings.TrimSpace(parts[1])
+		case "EPIC_ID":
+			pf.EpicID = strings.TrimSpace(parts[1])
+		}
+	}
+	return pf, nil
 }

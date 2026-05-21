@@ -31,11 +31,15 @@ var epicsListCmd = &cobra.Command{
 }
 
 var epicsGetCmd = &cobra.Command{
-	Use:   "get <id>",
-	Short: "Show a single epic",
-	Args:  cobra.ExactArgs(1),
+	Use:   "get [id]",
+	Short: "Show a single epic, or the project epic",
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		epic, err := apiClient.GetEpic(args[0])
+		epicID, err := resolveEpicID(args)
+		if err != nil {
+			return err
+		}
+		epic, err := apiClient.GetEpic(epicID)
 		if err != nil {
 			return err
 		}
@@ -73,11 +77,15 @@ var epicsUpdateCmd = &cobra.Command{
 }
 
 var epicsQueueCmd = &cobra.Command{
-	Use:   "queue <epic-id>",
-	Short: "Show the AI execution queue for an epic",
-	Args:  cobra.ExactArgs(1),
+	Use:   "queue [epic-id]",
+	Short: "Show the AI execution queue for an epic, or the project epic",
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		tasks, err := apiClient.GetEpicQueue(args[0])
+		epicID, err := resolveEpicID(args)
+		if err != nil {
+			return err
+		}
+		tasks, err := apiClient.GetEpicQueue(epicID)
 		if err != nil {
 			return err
 		}
@@ -87,11 +95,15 @@ var epicsQueueCmd = &cobra.Command{
 }
 
 var epicsHistoryCmd = &cobra.Command{
-	Use:   "history <epic-id>",
-	Short: "Show history for an epic",
-	Args:  cobra.ExactArgs(1),
+	Use:   "history [epic-id]",
+	Short: "Show history for an epic, or the project epic",
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		entries, err := apiClient.GetEpicHistory(args[0])
+		epicID, err := resolveEpicID(args)
+		if err != nil {
+			return err
+		}
+		entries, err := apiClient.GetEpicHistory(epicID)
 		if err != nil {
 			return err
 		}
@@ -101,17 +113,22 @@ var epicsHistoryCmd = &cobra.Command{
 }
 
 var epicsNoteCmd = &cobra.Command{
-	Use:   "note <epic-id>",
-	Short: "Add a note to an epic's history",
-	Example: `  tm epics note abc123 --message "Started scoping"
+	Use:   "note [epic-id]",
+	Short: "Add a note to an epic's history, or the project epic",
+	Example: `  tm epics note --message "Started scoping"
+  tm epics note abc123 --message "Started scoping"
   tm epics note abc123 --metadata '{"message":"done","model":"claude-sonnet-4-6"}'`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		epicID, err := resolveEpicID(args)
+		if err != nil {
+			return err
+		}
 		body, meta, err := buildNote(cmd)
 		if err != nil {
 			return err
 		}
-		entry, err := apiClient.AddEpicNote(args[0], body, meta)
+		entry, err := apiClient.AddEpicNote(epicID, body, meta)
 		if err != nil {
 			return err
 		}
@@ -122,6 +139,16 @@ var epicsNoteCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+func resolveEpicID(args []string) (string, error) {
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	if projectEpicID == "" {
+		return "", fmt.Errorf("no epic-id given and no .task-manager file found in directory tree")
+	}
+	return projectEpicID, nil
 }
 
 // buildNote returns the body text and optional metadata map from note flags.

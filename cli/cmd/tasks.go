@@ -14,15 +14,53 @@ var tasksCmd = &cobra.Command{
 }
 
 var tasksListCmd = &cobra.Command{
-	Use:   "list <feature-id>",
-	Short: "List tasks for a feature",
-	Args:  cobra.ExactArgs(1),
+	Use:   "list [feature-id]",
+	Short: "List tasks for a feature, or all tasks in the project epic",
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		tasks, err := apiClient.ListTasks(args[0])
+		if len(args) == 1 {
+			tasks, err := apiClient.ListTasks(args[0])
+			if err != nil {
+				return err
+			}
+			output.Tasks(tasks, jsonFlag)
+			return nil
+		}
+		if projectEpicID == "" {
+			return fmt.Errorf("no feature-id given and no .task-manager file found in directory tree")
+		}
+		features, err := apiClient.ListFeatures(projectEpicID)
 		if err != nil {
 			return err
 		}
-		output.Tasks(tasks, jsonFlag)
+		if jsonFlag {
+			type featureWithTasks struct {
+				Feature map[string]any   `json:"feature"`
+				Tasks   []map[string]any `json:"tasks"`
+			}
+			result := make([]featureWithTasks, 0, len(features))
+			for _, f := range features {
+				tasks, err := apiClient.ListTasks(strField(f, "id"))
+				if err != nil {
+					return err
+				}
+				result = append(result, featureWithTasks{Feature: f, Tasks: tasks})
+			}
+			output.JSON(result)
+			return nil
+		}
+		for _, f := range features {
+			tasks, err := apiClient.ListTasks(strField(f, "id"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("\n── %s (%s) ──\n", strField(f, "name"), strField(f, "status"))
+			if len(tasks) == 0 {
+				fmt.Println("  (no tasks)")
+				continue
+			}
+			output.Tasks(tasks, false)
+		}
 		return nil
 	},
 }

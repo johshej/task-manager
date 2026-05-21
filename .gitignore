@@ -1,3 +1,5 @@
+.task-manager
+cli/tm
 /.phpunit.cache
 /node_modules
 /public/build

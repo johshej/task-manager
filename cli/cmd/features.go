@@ -14,11 +14,18 @@ var featuresCmd = &cobra.Command{
 }
 
 var featuresListCmd = &cobra.Command{
-	Use:   "list <epic-id>",
-	Short: "List features for an epic",
-	Args:  cobra.ExactArgs(1),
+	Use:   "list [epic-id]",
+	Short: "List features for an epic, or for the project epic",
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		features, err := apiClient.ListFeatures(args[0])
+		epicID := projectEpicID
+		if len(args) == 1 {
+			epicID = args[0]
+		}
+		if epicID == "" {
+			return fmt.Errorf("no epic-id given and no .task-manager file found in directory tree")
+		}
+		features, err := apiClient.ListFeatures(epicID)
 		if err != nil {
 			return err
 		}

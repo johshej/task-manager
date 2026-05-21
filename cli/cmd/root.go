@@ -14,7 +14,8 @@ var (
 	urlFlag     string
 	tokenFlag   string
 
-	apiClient *api.Client
+	apiClient     *api.Client
+	projectEpicID string
 )
 
 var rootCmd = &cobra.Command{
@@ -37,33 +38,57 @@ func init() {
 }
 
 // requireClient is used as PersistentPreRunE on non-config commands.
+// Priority: flags > env vars > .task-manager file > profile config
 func requireClient(cmd *cobra.Command, args []string) error {
-	// Inline flags take priority
-	if urlFlag != "" && tokenFlag != "" {
-		apiClient = api.New(urlFlag, tokenFlag)
-		return nil
+	tmURL := firstNonEmpty(urlFlag, os.Getenv("TM_URL"))
+	tmToken := firstNonEmpty(tokenFlag, os.Getenv("TM_TOKEN"))
+
+	pf, _ := findProjectFile()
+	if pf != nil {
+		if pf.EpicID != "" {
+			projectEpicID = pf.EpicID
+		}
+		if tmURL == "" {
+			tmURL = pf.URL
+		}
+		if tmToken == "" {
+			tmToken = pf.Token
+		}
 	}
 
-	cfg, err := loadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	profile, _, err := resolveProfile(cfg, profileFlag)
-	if err != nil {
-		return err
-	}
-
-	// Allow partial env override
-	tmURL := urlFlag
-	if tmURL == "" {
-		tmURL = profile.URL
-	}
-	tmToken := tokenFlag
-	if tmToken == "" {
-		tmToken = profile.Token
+	if tmURL == "" || tmToken == "" {
+		cfg, err := loadConfig()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
+		profile, _, err := resolveProfile(cfg, profileFlag)
+		if err != nil {
+			return err
+		}
+		if tmURL == "" {
+			tmURL = profile.URL
+		}
+		if tmToken == "" {
+			tmToken = profile.Token
+		}
 	}
 
 	apiClient = api.New(tmURL, tmToken)
 	return nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func strField(m map[string]any, key string) string {
+	if v, ok := m[key]; ok && v != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return ""
 }
