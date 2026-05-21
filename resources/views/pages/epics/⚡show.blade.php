@@ -608,52 +608,31 @@ new #[Title('Epic Board')] class extends Component {
             wire:click="$toggle('showFilters')"
         >
             {{ __('Filter') }}
-            @if (count($filterFeatureIds) + count($filterStatuses) > 0)
-                <flux:badge color="blue" size="sm" class="ml-1">{{ count($filterFeatureIds) + count($filterStatuses) }}</flux:badge>
+            @if (count($filterStatuses) > 0)
+                <flux:badge color="blue" size="sm" class="ml-1">{{ count($filterStatuses) }}</flux:badge>
             @endif
         </flux:button>
     </div>
 
     {{-- Filter panel --}}
     @if ($showFilters)
-        <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <flux:heading size="sm" class="mb-2 font-semibold text-zinc-500 dark:text-zinc-400">{{ __('Features') }}</flux:heading>
-                    <div class="space-y-1.5">
-                        @foreach ($this->allFeatures as $f)
-                            <label class="flex cursor-pointer items-center gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    wire:model.live="filterFeatureIds"
-                                    value="{{ $f->id }}"
-                                    class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600"
-                                >
-                                {{ $f->name }}
-                            </label>
-                        @endforeach
-                    </div>
-                </div>
-                <div>
-                    <flux:heading size="sm" class="mb-2 font-semibold text-zinc-500 dark:text-zinc-400">{{ __('Status') }}</flux:heading>
-                    <div class="space-y-1.5">
-                        @foreach (TaskStatus::cases() as $s)
-                            <label class="flex cursor-pointer items-center gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    wire:model.live="filterStatuses"
-                                    value="{{ $s->value }}"
-                                    class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600"
-                                >
-                                <flux:badge color="{{ $s->color() }}" size="sm">{{ $s->label() }}</flux:badge>
-                            </label>
-                        @endforeach
-                    </div>
-                </div>
+        <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" data-filter-panel>
+            <div class="space-y-1.5">
+                @foreach (TaskStatus::cases() as $s)
+                    <label class="flex cursor-pointer items-center gap-2 text-sm">
+                        <input
+                            type="checkbox"
+                            wire:model.live="filterStatuses"
+                            value="{{ $s->value }}"
+                            class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600"
+                        >
+                        <flux:badge color="{{ $s->color() }}" size="sm">{{ $s->label() }}</flux:badge>
+                    </label>
+                @endforeach
             </div>
-            @if (count($filterFeatureIds) + count($filterStatuses) > 0)
+            @if (count($filterStatuses) > 0)
                 <div class="mt-3 flex justify-end">
-                    <flux:button variant="ghost" size="sm" wire:click="$set('filterFeatureIds', []); $set('filterStatuses', [])">
+                    <flux:button variant="ghost" size="sm" wire:click="$set('filterStatuses', [])">
                         {{ __('Clear filters') }}
                     </flux:button>
                 </div>
@@ -663,7 +642,7 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- ── Board view ──────────────────────────────────────────────────────── --}}
     @if ($viewMode === 'board')
-        <div class="space-y-6">
+        <div class="space-y-6" data-board-mode="board">
             @forelse ($this->features as $feature)
                 <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
                     {{-- Feature header --}}
@@ -695,7 +674,7 @@ new #[Title('Epic Board')] class extends Component {
                     @if ($feature->tasks->isNotEmpty())
                         <ul wire:sort="sortBoard" class="divide-y divide-zinc-100 list-none dark:divide-zinc-800">
                             @foreach ($feature->tasks as $task)
-                                <li wire:key="board-{{ $task->id }}" wire:sort:item="{{ $task->id }}" class="flex items-center">
+                                <li wire:key="board-{{ $task->id }}" wire:sort:item="{{ $task->id }}" data-selectable class="flex items-center">
                                     <div wire:sort:handle class="cursor-grab px-3 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
                                         <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
                                             <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
@@ -705,6 +684,7 @@ new #[Title('Epic Board')] class extends Component {
                                     </div>
                                     <button
                                         type="button"
+                                        data-open-btn
                                         wire:click="openTask('{{ $task->id }}')"
                                         class="flex flex-1 items-center gap-4 py-3 pr-5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                                     >
@@ -753,10 +733,10 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- ── Kanban view ──────────────────────────────────────────────────────── --}}
     @elseif ($viewMode === 'kanban')
-        <div class="overflow-x-auto pb-4">
+        <div class="overflow-x-auto pb-4" data-board-mode="kanban">
             <div class="flex gap-4" style="min-width: max-content">
                 @foreach ($this->kanbanColumns as $column)
-                    <div class="flex w-64 flex-col gap-2">
+                    <div class="flex w-64 flex-col gap-2" data-kanban-col="{{ $loop->index }}">
                         <div class="flex items-center gap-2 px-1">
                             <flux:badge color="{{ $column['status']->color() }}" size="sm">{{ $column['status']->label() }}</flux:badge>
                             <span class="text-xs text-zinc-400">{{ $column['tasks']->count() }}</span>
@@ -771,6 +751,7 @@ new #[Title('Epic Board')] class extends Component {
                                 <li
                                     wire:key="kanban-{{ $task->id }}"
                                     wire:sort:item="{{ $task->id }}"
+                                    data-selectable
                                     class="rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
                                 >
                                     <div class="flex items-start gap-2 p-3">
@@ -784,6 +765,7 @@ new #[Title('Epic Board')] class extends Component {
                                         <div class="min-w-0 flex-1">
                                             <button
                                                 type="button"
+                                                data-open-btn
                                                 wire:click="openTask('{{ $task->id }}')"
                                                 class="block w-full text-left text-sm font-medium leading-snug hover:underline"
                                                 style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;"
@@ -812,7 +794,7 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- ── Sort / AI Queue view ─────────────────────────────────────────────── --}}
     @elseif ($viewMode === 'sort')
-        <div>
+        <div data-board-mode="queue">
             <div class="mb-3 flex items-center justify-between">
                 <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
                     {{ __('Drag tasks to set the order in which the AI should execute them.') }}
@@ -826,6 +808,7 @@ new #[Title('Epic Board')] class extends Component {
                         <li
                             wire:key="queue-{{ $task->id }}"
                             wire:sort:item="{{ $task->id }}"
+                            data-selectable
                             class="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
                         >
                             <span class="w-7 shrink-0 text-right text-sm font-mono text-zinc-400">{{ $index + 1 }}</span>
@@ -839,6 +822,7 @@ new #[Title('Epic Board')] class extends Component {
                             <div class="min-w-0 flex-1">
                                 <button
                                     type="button"
+                                    data-open-btn
                                     wire:click="openTask('{{ $task->id }}')"
                                     class="block truncate text-left text-sm font-medium hover:underline"
                                 >{{ $task->title }}</button>
