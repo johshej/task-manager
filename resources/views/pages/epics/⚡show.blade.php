@@ -646,7 +646,7 @@ new #[Title('Epic Board')] class extends Component {
             @forelse ($this->features as $feature)
                 <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
                     {{-- Feature header --}}
-                    <div class="flex items-center justify-between border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
+                    <div data-selectable class="flex items-center justify-between border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="font-semibold">{{ $feature->name }}</span>
                             <flux:badge color="{{ $feature->status->color() }}" size="sm">{{ $feature->status->label() }}</flux:badge>
@@ -665,7 +665,7 @@ new #[Title('Epic Board')] class extends Component {
                                 <flux:button variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')" />
                             </flux:tooltip>
                             <flux:tooltip :content="__('Edit feature')">
-                                <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEditFeature('{{ $feature->id }}')" />
+                                <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn wire:click="openEditFeature('{{ $feature->id }}')" />
                             </flux:tooltip>
                         </div>
                     </div>
