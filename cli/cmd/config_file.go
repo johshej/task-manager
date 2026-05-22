@@ -95,21 +95,32 @@ func resolveProfile(cfg *Config, profileFlag string) (Profile, string, error) {
 
 // ProjectFile holds values from a .task-manager file in the project directory.
 type ProjectFile struct {
-	URL    string
-	Token  string
-	EpicID string
+	URL             string
+	Token           string
+	EpicID          string
+	ActiveTaskID    string
+	ActiveFeatureID string
+	DaemonURL       string
+	SessionID       string
 }
 
 // findProjectFile walks up from cwd looking for .task-manager and parses it.
 func findProjectFile() (*ProjectFile, error) {
+	pf, _, err := findProjectFileWithPath()
+	return pf, err
+}
+
+func findProjectFileWithPath() (*ProjectFile, string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	for {
-		data, err := os.ReadFile(filepath.Join(dir, ".task-manager"))
+		path := filepath.Join(dir, ".task-manager")
+		data, err := os.ReadFile(path)
 		if err == nil {
-			return parseProjectFile(data)
+			pf, err := parseProjectFile(data)
+			return pf, path, err
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -117,7 +128,7 @@ func findProjectFile() (*ProjectFile, error) {
 		}
 		dir = parent
 	}
-	return nil, nil
+	return nil, "", nil
 }
 
 func parseProjectFile(data []byte) (*ProjectFile, error) {
@@ -138,7 +149,51 @@ func parseProjectFile(data []byte) (*ProjectFile, error) {
 			pf.Token = strings.TrimSpace(parts[1])
 		case "EPIC_ID":
 			pf.EpicID = strings.TrimSpace(parts[1])
+		case "ACTIVE_TASK_ID":
+			pf.ActiveTaskID = strings.TrimSpace(parts[1])
+		case "ACTIVE_FEATURE_ID":
+			pf.ActiveFeatureID = strings.TrimSpace(parts[1])
+		case "DAEMON_URL":
+			pf.DaemonURL = strings.TrimSpace(parts[1])
+		case "SESSION_ID":
+			pf.SessionID = strings.TrimSpace(parts[1])
 		}
 	}
 	return pf, nil
+}
+
+// writeProjectFileKey sets or removes a key in the nearest .task-manager file.
+// Pass an empty value to delete the key.
+func writeProjectFileKey(key, value string) error {
+	_, path, err := findProjectFileWithPath()
+	if err != nil {
+		return err
+	}
+	if path == "" {
+		return fmt.Errorf("no .task-manager file found in directory tree")
+	}
+	return updateFileKey(path, key, value)
+}
+
+func updateFileKey(path, key, value string) error {
+	data, _ := os.ReadFile(path)
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+
+	found := false
+	result := make([]string, 0, len(lines)+1)
+	for _, line := range lines {
+		if strings.HasPrefix(line, key+"=") {
+			if value != "" {
+				result = append(result, key+"="+value)
+				found = true
+			}
+			// empty value = delete (skip line)
+		} else if line != "" {
+			result = append(result, line)
+		}
+	}
+	if !found && value != "" {
+		result = append(result, key+"="+value)
+	}
+	return os.WriteFile(path, []byte(strings.Join(result, "\n")+"\n"), 0o600)
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Actions\PushToClaudeSession;
 use App\Enums\ActorType;
 use App\Enums\HistoryAction;
 use App\Enums\TaskStatus;
@@ -19,6 +20,15 @@ class TaskHistory extends Model
     use HasFactory, HasUuids;
 
     public $timestamps = false;
+
+    protected static function booted(): void
+    {
+        static::created(function (TaskHistory $history) {
+            if ($history->action === HistoryAction::Note && ($history->metadata['claude_request'] ?? false)) {
+                app(PushToClaudeSession::class)->handle('task', $history->task_id, $history->body ?? '');
+            }
+        });
+    }
 
     protected function casts(): array
     {

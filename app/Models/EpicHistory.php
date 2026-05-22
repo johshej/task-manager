@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Actions\PushToClaudeSession;
 use App\Enums\ActorType;
 use App\Enums\EpicStatus;
 use App\Enums\HistoryAction;
@@ -16,6 +17,15 @@ class EpicHistory extends Model
     use HasUuids;
 
     public $timestamps = false;
+
+    protected static function booted(): void
+    {
+        static::created(function (EpicHistory $history) {
+            if ($history->action === HistoryAction::Note && ($history->metadata['claude_request'] ?? false)) {
+                app(PushToClaudeSession::class)->handle('epic', $history->epic_id, $history->body ?? '');
+            }
+        });
+    }
 
     protected function casts(): array
     {

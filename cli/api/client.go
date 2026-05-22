@@ -279,3 +279,52 @@ func (c *Client) AddTaskNote(id, body string, metadata map[string]any) (map[stri
 	}
 	return toMap(data)
 }
+
+// ── Sessions ──────────────────────────────────────────────────────────────────
+
+type SessionInput struct {
+	DaemonURL   string
+	ProjectPath string
+	EpicID      string
+	FeatureID   string
+	TaskID      string
+}
+
+func (c *Client) RegisterSession(input SessionInput) (string, error) {
+	body := map[string]any{
+		"daemon_url":   input.DaemonURL,
+		"project_path": input.ProjectPath,
+	}
+	if input.EpicID != "" {
+		body["epic_id"] = input.EpicID
+	}
+	if input.FeatureID != "" {
+		body["feature_id"] = input.FeatureID
+	}
+	if input.TaskID != "" {
+		body["task_id"] = input.TaskID
+	}
+	data, err := c.do("POST", "sessions", body, nil)
+	if err != nil {
+		return "", err
+	}
+	m, err := toMap(data)
+	if err != nil {
+		return "", err
+	}
+	id, _ := m["id"].(string)
+	if id == "" {
+		return "", fmt.Errorf("unexpected response: missing id")
+	}
+	return id, nil
+}
+
+func (c *Client) HeartbeatSession(sessionID string) error {
+	_, err := c.do("PATCH", "sessions/"+sessionID+"/heartbeat", nil, nil)
+	return err
+}
+
+func (c *Client) DeregisterSession(sessionID string) error {
+	_, err := c.do("DELETE", "sessions/"+sessionID, nil, nil)
+	return err
+}

@@ -14,8 +14,10 @@ var (
 	urlFlag     string
 	tokenFlag   string
 
-	apiClient     *api.Client
-	projectEpicID string
+	apiClient             *api.Client
+	projectEpicID         string
+	projectActiveTaskID    string
+	projectActiveFeatureID string
 )
 
 var rootCmd = &cobra.Command{
@@ -47,6 +49,12 @@ func requireClient(cmd *cobra.Command, args []string) error {
 	if pf != nil {
 		if pf.EpicID != "" {
 			projectEpicID = pf.EpicID
+		}
+		if pf.ActiveTaskID != "" {
+			projectActiveTaskID = pf.ActiveTaskID
+		}
+		if pf.ActiveFeatureID != "" {
+			projectActiveFeatureID = pf.ActiveFeatureID
 		}
 		if tmURL == "" {
 			tmURL = pf.URL

@@ -299,7 +299,7 @@ new #[Title('Epic Board')] class extends Component {
 
     // ── Conversation threads ──────────────────────────────────────────────────
 
-    public function addTaskReply(): void
+    public function addTaskReply(bool $sendToClaude = false): void
     {
         $this->validate(['taskReplyBody' => ['required', 'string', 'max:10000']]);
 
@@ -310,13 +310,14 @@ new #[Title('Epic Board')] class extends Component {
             'actor_name' => auth()->user()?->name,
             'action' => HistoryAction::Note,
             'body' => $this->taskReplyBody,
+            'metadata' => $sendToClaude ? ['claude_request' => true] : null,
         ]);
 
         $this->taskReplyBody = '';
         unset($this->selectedTask);
     }
 
-    public function addFeatureReply(): void
+    public function addFeatureReply(bool $sendToClaude = false): void
     {
         $this->validate(['featureReplyBody' => ['required', 'string', 'max:10000']]);
 
@@ -327,6 +328,7 @@ new #[Title('Epic Board')] class extends Component {
             'actor_name' => auth()->user()?->name,
             'action' => HistoryAction::Note,
             'body' => $this->featureReplyBody,
+            'metadata' => $sendToClaude ? ['claude_request' => true] : null,
         ]);
 
         $this->featureReplyBody = '';
@@ -1116,7 +1118,14 @@ new #[Title('Epic Board')] class extends Component {
                             :placeholder="__('Add a note...')"
                             rows="3"
                         />
-                        <div class="mt-2 flex justify-end">
+                        <div class="mt-2 flex justify-between">
+                            <flux:button
+                                variant="ghost"
+                                size="sm"
+                                icon="cpu-chip"
+                                wire:click="addFeatureReply(true)"
+                                :disabled="! trim($featureReplyBody)"
+                            >{{ __('Send to Claude') }}</flux:button>
                             <flux:button
                                 variant="primary"
                                 size="sm"
@@ -1341,7 +1350,14 @@ new #[Title('Epic Board')] class extends Component {
                             :placeholder="__('Add a note...')"
                             rows="3"
                         />
-                        <div class="mt-2 flex justify-end">
+                        <div class="mt-2 flex justify-between">
+                            <flux:button
+                                variant="ghost"
+                                size="sm"
+                                icon="cpu-chip"
+                                wire:click="addTaskReply(true)"
+                                :disabled="! trim($taskReplyBody)"
+                            >{{ __('Send to Claude') }}</flux:button>
                             <flux:button
                                 variant="primary"
                                 size="sm"

@@ -4,12 +4,17 @@ use App\Http\Controllers\Api\V1\EpicController;
 use App\Http\Controllers\Api\V1\EpicHistoryController;
 use App\Http\Controllers\Api\V1\FeatureController;
 use App\Http\Controllers\Api\V1\FeatureHistoryController;
+use App\Http\Controllers\Api\V1\SessionController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\TaskHistoryController;
 use App\Http\Controllers\Api\V1\TokenController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
+    Route::post('sessions', [SessionController::class, 'store']);
+    Route::patch('sessions/{session}/heartbeat', [SessionController::class, 'heartbeat']);
+    Route::delete('sessions/{session}', [SessionController::class, 'destroy']);
+
     Route::get('tokens', [TokenController::class, 'index']);
     Route::post('tokens', [TokenController::class, 'store']);
     Route::delete('tokens/{apiToken}', [TokenController::class, 'destroy']);
