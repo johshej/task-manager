@@ -808,10 +808,10 @@ new #[Title('Epic Board')] class extends Component {
                             wire:key="queue-{{ $task->id }}"
                             wire:sort:item="{{ $task->id }}"
                             data-selectable
-                            class="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
+                            class="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
                         >
-                            <span class="w-7 shrink-0 text-right text-sm font-mono text-zinc-400">{{ $index + 1 }}</span>
-                            <div wire:sort:handle class="shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500">
+                            <span class="w-7 shrink-0 pt-0.5 text-right font-mono text-sm text-zinc-400">{{ $index + 1 }}</span>
+                            <div wire:sort:handle class="shrink-0 cursor-grab pt-0.5 text-zinc-300 hover:text-zinc-500">
                                 <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
                                     <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
                                     <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
@@ -819,24 +819,24 @@ new #[Title('Epic Board')] class extends Component {
                                 </svg>
                             </div>
                             <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <flux:badge color="{{ $task->status->color() }}" size="sm">{{ $task->status->label() }}</flux:badge>
+                                    <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
+                                    @if ($task->resolvedTdd() !== null)
+                                        <flux:badge color="{{ $task->resolvedTdd() ? 'green' : 'zinc' }}" size="sm">TDD</flux:badge>
+                                    @endif
+                                    @if ($task->resolvedEnvironment())
+                                        <flux:badge color="sky" size="sm">{{ $task->resolvedEnvironment() }}</flux:badge>
+                                    @endif
+                                </div>
                                 <button
                                     type="button"
                                     data-open-btn
                                     wire:click="openTask('{{ $task->id }}')"
-                                    class="block truncate text-left text-sm font-medium hover:underline"
+                                    class="mt-1 block text-left text-sm font-medium hover:underline"
                                 >{{ $task->title }}</button>
                                 @if ($task->feature)
                                     <span class="text-xs text-zinc-400">{{ $task->feature->name }}</span>
-                                @endif
-                            </div>
-                            <div class="flex shrink-0 items-center gap-2">
-                                <flux:badge color="{{ $task->status->color() }}" size="sm">{{ $task->status->label() }}</flux:badge>
-                                <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
-                                @if ($task->resolvedTdd() !== null)
-                                    <flux:badge color="{{ $task->resolvedTdd() ? 'green' : 'zinc' }}" size="sm">TDD</flux:badge>
-                                @endif
-                                @if ($task->resolvedEnvironment())
-                                    <flux:badge color="sky" size="sm">{{ $task->resolvedEnvironment() }}</flux:badge>
                                 @endif
                             </div>
                         </li>
