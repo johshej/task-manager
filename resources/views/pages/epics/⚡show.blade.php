@@ -624,13 +624,11 @@ new #[Title('Epic Board')] class extends Component {
                     </label>
                 @endforeach
             </div>
-            @if (count($filterStatuses) > 0)
-                <div class="mt-3 flex justify-end">
-                    <flux:button variant="ghost" size="sm" wire:click="$set('filterStatuses', [])">
-                        {{ __('Clear filters') }}
-                    </flux:button>
-                </div>
-            @endif
+            <div class="mt-3 flex justify-end">
+                <flux:button variant="ghost" size="sm" wire:click="$set('filterStatuses', [])" :disabled="count($filterStatuses) === 0">
+                    {{ __('Clear filters') }}
+                </flux:button>
+            </div>
         </div>
     @endif
 
