@@ -667,8 +667,8 @@ new #[Title('Epic Board')] class extends Component {
                     @if ($feature->tasks->isNotEmpty())
                         <ul wire:sort="sortBoard" class="divide-y divide-zinc-100 list-none dark:divide-zinc-800">
                             @foreach ($feature->tasks as $task)
-                                <li wire:key="board-{{ $task->id }}" wire:sort:item="{{ $task->id }}" data-selectable class="flex items-center">
-                                    <div wire:sort:handle class="cursor-grab px-3 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
+                                <li wire:key="board-{{ $task->id }}" wire:sort:item="{{ $task->id }}" data-selectable class="flex items-start">
+                                    <div wire:sort:handle class="cursor-grab px-3 pt-3 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
                                         <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
                                             <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
                                             <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
@@ -679,21 +679,23 @@ new #[Title('Epic Board')] class extends Component {
                                         type="button"
                                         data-open-btn
                                         wire:click="openTask('{{ $task->id }}')"
-                                        class="flex flex-1 items-center gap-4 py-3 pr-5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                                        class="flex flex-1 flex-col py-3 pr-5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                                     >
-                                        <span class="min-w-0 flex-1 text-sm font-medium">{{ $task->title }}</span>
-                                        <flux:badge color="{{ $task->status->color() }}" size="sm">{{ $task->status->label() }}</flux:badge>
-                                        <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
-                                        @if ($task->resolvedEnvironment())
-                                            <flux:badge color="sky" size="sm">{{ $task->resolvedEnvironment() }}</flux:badge>
-                                        @endif
-                                        @if ($task->latestHistory)
-                                            @if ($task->latestHistory->actor_type === ActorType::Ai)
-                                                <flux:badge color="purple" size="sm" icon="cpu-chip">AI</flux:badge>
-                                            @else
-                                                <flux:badge color="zinc" size="sm" icon="user">User</flux:badge>
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <flux:badge color="{{ $task->status->color() }}" size="sm">{{ $task->status->label() }}</flux:badge>
+                                            <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
+                                            @if ($task->resolvedEnvironment())
+                                                <flux:badge color="sky" size="sm">{{ $task->resolvedEnvironment() }}</flux:badge>
                                             @endif
-                                        @endif
+                                            @if ($task->latestHistory)
+                                                @if ($task->latestHistory->actor_type === ActorType::Ai)
+                                                    <flux:badge color="purple" size="sm" icon="cpu-chip">AI</flux:badge>
+                                                @else
+                                                    <flux:badge color="zinc" size="sm" icon="user">User</flux:badge>
+                                                @endif
+                                            @endif
+                                        </div>
+                                        <span class="mt-1 text-sm font-medium">{{ $task->title }}</span>
                                     </button>
                                 </li>
                             @endforeach
