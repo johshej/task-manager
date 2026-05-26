@@ -424,6 +424,7 @@ new #[Title('Epic Board')] class extends Component {
     {
         return $this->epic->features()
             ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
+            ->when(count($this->filterStatuses), fn ($q) => $q->whereHas('tasks', fn ($q) => $q->whereIn('status', $this->filterStatuses)))
             ->with(['tasks' => fn ($q) => $q
                 ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
                 ->orderBy('order_index')
