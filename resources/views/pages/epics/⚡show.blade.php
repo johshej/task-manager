@@ -528,54 +528,47 @@ new #[Title('Epic Board')] class extends Component {
 <div class="flex h-full w-full flex-1 flex-col gap-6 p-6" data-view="epic-board">
 
     {{-- Page header --}}
-    <div class="flex items-start gap-3">
-        <flux:button
-            variant="ghost"
-            size="sm"
-            icon="arrow-left"
-            :href="route('epics')"
-            wire:navigate
-            class="mt-0.5 shrink-0"
-        />
-        <div class="min-w-0 flex-1">
-            <flux:heading size="xl">{{ $epic->name }}</flux:heading>
-            <div class="mt-1 flex flex-wrap items-center gap-2">
-                <flux:badge color="{{ $epic->status->color() }}">{{ $epic->status->label() }}</flux:badge>
-                @if ($epic->tdd !== null)
-                    <flux:badge color="{{ $epic->tdd ? 'green' : 'zinc' }}" size="sm">TDD: {{ $epic->tdd ? 'On' : 'Off' }}</flux:badge>
-                @endif
-                @if ($epic->ai_mode)
-                    <flux:badge color="purple" size="sm">AI: {{ $epic->ai_mode }}</flux:badge>
-                @endif
-                @if ($epic->environment)
-                    <flux:badge color="sky" size="sm">{{ $epic->environment }}</flux:badge>
-                @endif
+    <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between gap-2">
+            <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('epics')" wire:navigate />
+            <div class="flex items-center gap-2">
+                <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEditEpic">
+                    {{ __('Edit epic') }}
+                </flux:button>
+                <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-feature" wire:click="openAddFeature">
+                    {{ __('Add feature') }}
+                </flux:button>
             </div>
-            @if ($epic->repository_url)
-                <a
-                    href="{{ $epic->repository_url }}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="mt-1 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 break-all"
-                >
-                    <flux:icon.folder-git-2 class="size-3.5 shrink-0" />
-                    {{ $epic->repository_url }}
-                </a>
+        </div>
+        <flux:heading size="xl">{{ $epic->name }}</flux:heading>
+        <div class="flex flex-wrap items-center gap-2">
+            <flux:badge color="{{ $epic->status->color() }}">{{ $epic->status->label() }}</flux:badge>
+            @if ($epic->tdd !== null)
+                <flux:badge color="{{ $epic->tdd ? 'green' : 'zinc' }}" size="sm">TDD: {{ $epic->tdd ? 'On' : 'Off' }}</flux:badge>
             @endif
-            @if ($epic->description)
-                <flux:text class="mt-1 w-full text-sm text-zinc-500 dark:text-zinc-400 break-words">
-                    {{ $epic->description }}
-                </flux:text>
+            @if ($epic->ai_mode)
+                <flux:badge color="purple" size="sm">AI: {{ $epic->ai_mode }}</flux:badge>
+            @endif
+            @if ($epic->environment)
+                <flux:badge color="sky" size="sm">{{ $epic->environment }}</flux:badge>
             @endif
         </div>
-        <div class="flex shrink-0 items-center gap-2">
-            <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEditEpic">
-                {{ __('Edit epic') }}
-            </flux:button>
-            <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-feature" wire:click="openAddFeature">
-                {{ __('Add feature') }}
-            </flux:button>
-        </div>
+        @if ($epic->repository_url)
+            <a
+                href="{{ $epic->repository_url }}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 break-all"
+            >
+                <flux:icon.folder-git-2 class="size-3.5 shrink-0" />
+                {{ $epic->repository_url }}
+            </a>
+        @endif
+        @if ($epic->description)
+            <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 break-words">
+                {{ $epic->description }}
+            </flux:text>
+        @endif
     </div>
 
     {{-- View controls --}}
