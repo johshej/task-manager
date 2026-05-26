@@ -639,28 +639,30 @@ new #[Title('Epic Board')] class extends Component {
             @forelse ($this->features as $feature)
                 <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
                     {{-- Feature header --}}
-                    <div data-selectable class="flex items-center justify-between border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="font-semibold">{{ $feature->name }}</span>
-                            <flux:badge color="{{ $feature->status->color() }}" size="sm">{{ $feature->status->label() }}</flux:badge>
-                            <flux:text class="text-xs text-zinc-400">
-                                {{ $feature->tasks->count() }} {{ Str::plural('task', $feature->tasks->count()) }}
-                            </flux:text>
-                            @if ($feature->tdd !== null)
-                                <flux:badge color="{{ $feature->tdd ? 'green' : 'zinc' }}" size="sm">TDD: {{ $feature->tdd ? 'On' : 'Off' }}</flux:badge>
-                            @endif
-                            @if ($feature->environment)
-                                <flux:badge color="sky" size="sm">{{ $feature->environment }}</flux:badge>
-                            @endif
+                    <div data-selectable class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <flux:badge color="{{ $feature->status->color() }}" size="sm">{{ $feature->status->label() }}</flux:badge>
+                                <flux:text class="text-xs text-zinc-400">
+                                    {{ $feature->tasks->count() }} {{ Str::plural('task', $feature->tasks->count()) }}
+                                </flux:text>
+                                @if ($feature->tdd !== null)
+                                    <flux:badge color="{{ $feature->tdd ? 'green' : 'zinc' }}" size="sm">TDD: {{ $feature->tdd ? 'On' : 'Off' }}</flux:badge>
+                                @endif
+                                @if ($feature->environment)
+                                    <flux:badge color="sky" size="sm">{{ $feature->environment }}</flux:badge>
+                                @endif
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <flux:tooltip :content="__('Add task')">
+                                    <flux:button variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')" />
+                                </flux:tooltip>
+                                <flux:tooltip :content="__('Edit feature')">
+                                    <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn wire:click="openEditFeature('{{ $feature->id }}')" />
+                                </flux:tooltip>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-1">
-                            <flux:tooltip :content="__('Add task')">
-                                <flux:button variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')" />
-                            </flux:tooltip>
-                            <flux:tooltip :content="__('Edit feature')">
-                                <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn wire:click="openEditFeature('{{ $feature->id }}')" />
-                            </flux:tooltip>
-                        </div>
+                        <span class="font-semibold">{{ $feature->name }}</span>
                     </div>
 
                     {{-- Tasks --}}
