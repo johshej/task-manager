@@ -539,21 +539,19 @@ new #[Title('Epic Board')] class extends Component {
                 class="mt-0.5"
             />
             <div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <flux:heading size="xl">{{ $epic->name }}</flux:heading>
+                <flux:heading size="xl">{{ $epic->name }}</flux:heading>
+                <div class="mt-1 flex flex-wrap items-center gap-2">
                     <flux:badge color="{{ $epic->status->color() }}">{{ $epic->status->label() }}</flux:badge>
                     @if ($epic->tdd !== null)
                         <flux:badge color="{{ $epic->tdd ? 'green' : 'zinc' }}" size="sm">TDD: {{ $epic->tdd ? 'On' : 'Off' }}</flux:badge>
+                    @endif
+                    @if ($epic->ai_mode)
+                        <flux:badge color="purple" size="sm">AI: {{ $epic->ai_mode }}</flux:badge>
                     @endif
                     @if ($epic->environment)
                         <flux:badge color="sky" size="sm">{{ $epic->environment }}</flux:badge>
                     @endif
                 </div>
-                @if ($epic->description)
-                    <flux:text class="mt-1 w-full text-sm text-zinc-500 dark:text-zinc-400 break-words">
-                        {{ $epic->description }}
-                    </flux:text>
-                @endif
                 @if ($epic->repository_url)
                     <a
                         href="{{ $epic->repository_url }}"
@@ -565,8 +563,10 @@ new #[Title('Epic Board')] class extends Component {
                         {{ $epic->repository_url }}
                     </a>
                 @endif
-                @if ($epic->ai_mode)
-                    <flux:text class="mt-1 text-xs text-zinc-400">AI: {{ $epic->ai_mode }}</flux:text>
+                @if ($epic->description)
+                    <flux:text class="mt-1 w-full text-sm text-zinc-500 dark:text-zinc-400 break-words">
+                        {{ $epic->description }}
+                    </flux:text>
                 @endif
             </div>
         </div>
@@ -690,7 +690,7 @@ new #[Title('Epic Board')] class extends Component {
                                         wire:click="openTask('{{ $task->id }}')"
                                         class="flex flex-1 items-center gap-4 py-3 pr-5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                                     >
-                                        <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ $task->title }}</span>
+                                        <span class="min-w-0 flex-1 text-sm font-medium">{{ $task->title }}</span>
                                         <flux:badge color="{{ $task->status->color() }}" size="sm">{{ $task->status->label() }}</flux:badge>
                                         <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
                                         @if ($task->resolvedEnvironment())
