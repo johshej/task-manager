@@ -696,9 +696,6 @@ new #[Title('Epic Board')] class extends Component {
                                 <flux:tooltip :content="__('Edit feature')">
                                     <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn wire:click="openEditFeature('{{ $feature->id }}')" />
                                 </flux:tooltip>
-                                <flux:tooltip :content="__('Delete feature')">
-                                    <flux:button variant="ghost" size="sm" icon="trash" wire:click="confirmDeleteFeature('{{ $feature->id }}')" />
-                                </flux:tooltip>
                             </div>
                         </div>
                         <span class="font-semibold">{{ $feature->name }}</span>
@@ -738,7 +735,6 @@ new #[Title('Epic Board')] class extends Component {
                                         </div>
                                         <span class="mt-1 text-sm font-medium">{{ $task->title }}</span>
                                     </button>
-                                    <flux:button variant="ghost" size="sm" icon="trash" class="shrink-0 self-center pr-3" wire:click="confirmDeleteTask('{{ $task->id }}')" />
                                 </li>
                             @endforeach
                         </ul>
@@ -877,7 +873,6 @@ new #[Title('Epic Board')] class extends Component {
                                     <span class="text-xs text-zinc-400">{{ $task->feature->name }}</span>
                                 @endif
                             </div>
-                            <flux:button variant="ghost" size="sm" icon="trash" class="shrink-0 self-center" wire:click="confirmDeleteTask('{{ $task->id }}')" />
                         </li>
                     @endforeach
                 </ul>
@@ -1085,11 +1080,14 @@ new #[Title('Epic Board')] class extends Component {
                         <flux:textarea wire:model="editFeatureAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$epic->ai_mode ? __('Inherits: ').$epic->ai_mode : __('Describe how AI should behave...')" />
                     </form>
 
-                    <div class="mt-5 flex shrink-0 justify-end gap-2">
-                        <flux:modal.close>
-                            <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button variant="primary" form="edit-feature-form" type="submit">{{ __('Save changes') }}</flux:button>
+                    <div class="mt-5 flex shrink-0 items-center justify-between gap-2">
+                        <flux:button variant="danger" icon="trash" size="sm" wire:click="confirmDeleteFeature('{{ $editingFeatureId }}')">{{ __('Delete') }}</flux:button>
+                        <div class="flex gap-2">
+                            <flux:modal.close>
+                                <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                            </flux:modal.close>
+                            <flux:button variant="primary" form="edit-feature-form" type="submit">{{ __('Save changes') }}</flux:button>
+                        </div>
                     </div>
                 </div>
 
@@ -1232,12 +1230,10 @@ new #[Title('Epic Board')] class extends Component {
                     @if (! $editingTask)
                         <div class="flex items-start justify-between gap-3">
                             <flux:heading size="lg" class="leading-snug">{{ $this->selectedTask->title }}</flux:heading>
-                            <flux:button
-                                variant="ghost"
-                                size="sm"
-                                icon="pencil"
-                                wire:click="startEditingTask"
-                            >{{ __('Edit') }}</flux:button>
+                            <div class="flex shrink-0 items-center gap-1">
+                                <flux:button variant="ghost" size="sm" icon="pencil" wire:click="startEditingTask">{{ __('Edit') }}</flux:button>
+                                <flux:button variant="ghost" size="sm" icon="trash" wire:click="confirmDeleteTask('{{ $this->selectedTask->id }}')" />
+                            </div>
                         </div>
 
                         <div class="mt-3 flex flex-wrap items-center gap-2">
