@@ -21,6 +21,37 @@ new #[Title('Epics')] class extends Component {
     public string $environment = '';
 
     public ?string $editingEpicId = null;
+
+    private static function defaultAiMode(): string
+    {
+        return <<<'EOT'
+        You are working inside a task manager. Work is organized in three levels:
+        - Epic: the top-level goal (this context)
+        - Feature: a deliverable sub-goal within the epic — each feature has its own git branch
+        - Task: a concrete unit of work within a feature
+
+        Each feature maps to a git branch named after the feature (slugified). If the branch does not exist, create it before starting work.
+
+        If a feature has no tasks, treat the feature itself as the unit of work — use its name and description as the specification.
+
+        When given a specific feature or task, work only on that. When asked to keep working on available items, use the AI Queue for this epic to determine priority — work through tasks top to bottom, one at a time, creating or switching to the feature branch for each. If you can do no more on a task and it is not done, add status as described below and move to the next one.
+
+        When given a task, read its title, description, and thread history for context. Check the feature it belongs to for scope, and the epic for overall direction.
+
+        When done with a task, update its status and add a note to the thread summarizing what you did, any decisions made, and what to watch out for.
+
+        If a task is blocked or unclear, add a note explaining why and set the status to Blocked — do not guess.
+
+        Follow the TDD setting: if TDD is enabled, write tests before implementation.
+
+        Prefer small, focused changes. Do not modify tasks or features you were not asked to work on.
+        EOT;
+    }
+
+    public function mount(): void
+    {
+        $this->aiMode = self::defaultAiMode();
+    }
     public string $editName = '';
     public string $editDescription = '';
     public string $editRepositoryUrl = '';
@@ -64,7 +95,8 @@ new #[Title('Epics')] class extends Component {
             'environment' => $this->environment ?: null,
         ]);
 
-        $this->reset('name', 'description', 'repositoryUrl', 'tdd', 'aiMode', 'environment');
+        $this->reset('name', 'description', 'repositoryUrl', 'tdd', 'environment');
+        $this->aiMode = self::defaultAiMode();
         $this->modal('create-epic')->close();
         Flux::toast(variant: 'success', text: 'Epic created.');
     }
