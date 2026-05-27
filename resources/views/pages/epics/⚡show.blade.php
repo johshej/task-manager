@@ -64,6 +64,10 @@ new #[Title('Epic Board')] class extends Component {
     public ?string $deletingFeatureId = null;
     public ?string $deletingTaskId = null;
 
+    // Highlight after returning from an edit
+    public ?string $highlightedId = null;
+    public ?string $lastEditedId = null;
+
     // Conversation thread replies
     public string $taskReplyBody = '';
     public string $featureReplyBody = '';
@@ -96,6 +100,8 @@ new #[Title('Epic Board')] class extends Component {
             'epics.board.task' => $this->openTask(request()->route('task')),
             default => null,
         };
+
+        $this->highlightedId = session('highlighted_id');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -218,6 +224,7 @@ new #[Title('Epic Board')] class extends Component {
             'environment' => $this->editFeatureEnvironment ?: null,
         ]);
 
+        session()->flash('highlighted_id', $this->editingFeatureId);
         unset($this->features);
         Flux::toast(variant: 'success', text: 'Feature updated.');
         $this->redirect(route('epics.board', $this->epic), navigate: true);
@@ -339,12 +346,16 @@ new #[Title('Epic Board')] class extends Component {
         ]);
 
         $this->editingTask = false;
+        $this->lastEditedId = $this->selectedTaskId;
         unset($this->selectedTask, $this->features, $this->kanbanColumns, $this->sortedQueue);
         Flux::toast(variant: 'success', text: 'Task saved.');
     }
 
     public function closeTask(): void
     {
+        if ($this->lastEditedId) {
+            session()->flash('highlighted_id', $this->lastEditedId);
+        }
         $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
@@ -603,7 +614,7 @@ new #[Title('Epic Board')] class extends Component {
         <div class="flex items-center justify-between gap-2">
             <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('epics')" wire:navigate />
             <div class="flex items-center gap-2">
-                <flux:button variant="ghost" size="sm" icon="pencil" :href="route('epics.board.edit', $epic)" wire:navigate>
+                <flux:button variant="ghost" size="sm" icon="pencil" data-shortcut="edit-epic" :href="route('epics.board.edit', $epic)" wire:navigate>
                     {{ __('Edit epic') }}
                 </flux:button>
                 <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-feature" wire:click="openAddFeature">
@@ -706,7 +717,13 @@ new #[Title('Epic Board')] class extends Component {
     @if ($viewMode === 'board')
         <div class="space-y-6" data-board-mode="board">
             @forelse ($this->features as $feature)
-                <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                <div
+                    @class([
+                        'rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900',
+                        'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $feature->id,
+                    ])
+                    @if ($highlightedId === $feature->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
+                >
                     {{-- Feature header --}}
                     <div data-selectable class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
                         <div class="flex items-center justify-between gap-2">
@@ -738,7 +755,13 @@ new #[Title('Epic Board')] class extends Component {
                     @if ($feature->tasks->isNotEmpty())
                         <ul wire:sort="sortBoard" class="divide-y divide-zinc-100 list-none dark:divide-zinc-800">
                             @foreach ($feature->tasks as $task)
-                                <li wire:key="board-{{ $task->id }}" wire:sort:item="{{ $task->id }}" data-selectable class="flex items-start">
+                                <li
+                                    wire:key="board-{{ $task->id }}"
+                                    wire:sort:item="{{ $task->id }}"
+                                    data-selectable
+                                    @class(['flex items-start', 'bg-blue-50 dark:bg-blue-950/20' => $highlightedId === $task->id])
+                                    @if ($highlightedId === $task->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
+                                >
                                     <div wire:sort:handle class="cursor-grab px-3 pt-3 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
                                         <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
                                             <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
@@ -818,7 +841,11 @@ new #[Title('Epic Board')] class extends Component {
                                     wire:key="kanban-{{ $task->id }}"
                                     wire:sort:item="{{ $task->id }}"
                                     data-selectable
-                                    class="rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+                                    @class([
+                                        'rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900',
+                                        'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $task->id,
+                                    ])
+                                    @if ($highlightedId === $task->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
                                 >
                                     <div class="flex items-start gap-2 p-3">
                                         <div wire:sort:handle class="mt-0.5 shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500">
@@ -875,7 +902,11 @@ new #[Title('Epic Board')] class extends Component {
                             wire:key="queue-{{ $task->id }}"
                             wire:sort:item="{{ $task->id }}"
                             data-selectable
-                            class="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
+                            @class([
+                                'flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900',
+                                'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $task->id,
+                            ])
+                            @if ($highlightedId === $task->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
                         >
                             <span class="w-7 shrink-0 pt-0.5 text-right font-mono text-sm text-zinc-400">{{ $index + 1 }}</span>
                             <div wire:sort:handle class="shrink-0 cursor-grab pt-0.5 text-zinc-300 hover:text-zinc-500">

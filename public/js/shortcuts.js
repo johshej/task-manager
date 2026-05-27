@@ -45,9 +45,11 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select task</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">←</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">→</kbd> &nbsp; Switch column (kanban)</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected task</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit epic</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">1</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">2</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">3</kbd> &nbsp; Board / Kanban / Queue</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">f</kbd> &nbsp; Toggle filters</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> &nbsp; Add feature</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Ctrl</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Save form</div>
           </div>
           <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Filter panel</div>
@@ -242,6 +244,7 @@
       }
 
       if (e.key === 'Enter') { e.preventDefault(); handled = true; openActiveTask(); }
+      if (e.key === 'e') { e.preventDefault(); handled = true; shortcut('edit-epic'); }
       if (e.key === '1') { e.preventDefault(); handled = true; shortcut('view-board'); }
       if (e.key === '2') { e.preventDefault(); handled = true; shortcut('view-kanban'); }
       if (e.key === '3') { e.preventDefault(); handled = true; shortcut('view-sort'); }
@@ -259,6 +262,18 @@
 
   window.addEventListener('keydown', (e) => {
     if (e.defaultPrevented) return;
+
+    // Ctrl/Cmd+Enter: submit the form containing the focused element
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      const form = document.activeElement && document.activeElement.closest('form');
+      if (form) {
+        e.preventDefault();
+        const submit = form.querySelector('[type="submit"]');
+        if (submit) submit.click();
+      }
+      return;
+    }
+
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     // Filter panel intercepts arrows/escape/f before isTyping check
