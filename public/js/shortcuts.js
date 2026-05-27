@@ -263,16 +263,6 @@
   window.addEventListener('keydown', (e) => {
     if (e.defaultPrevented) return;
 
-    // Ctrl/Cmd+Enter: submit the form containing the focused element
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      const form = document.activeElement && document.activeElement.closest('form');
-      if (form) {
-        e.preventDefault();
-        form.requestSubmit();
-      }
-      return;
-    }
-
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     // Filter panel intercepts arrows/escape/f before isTyping check

@@ -971,7 +971,10 @@ new #[Title('Epic Board')] class extends Component {
             <div class="flex min-h-0 flex-1 gap-8">
                 {{-- Form --}}
                 <div class="flex w-full flex-col overflow-y-auto md:w-96 md:shrink-0">
-                    <form wire:submit="updateEpic" id="edit-epic-form" class="flex-1 space-y-5">
+                    <form wire:submit="updateEpic" id="edit-epic-form" class="flex-1 space-y-5"
+                        @keydown.ctrl.enter.prevent="$wire.updateEpic()"
+                        @keydown.meta.enter.prevent="$wire.updateEpic()"
+                    >
                         <flux:input wire:model="editEpicName" :label="__('Name')" autofocus required />
                         <flux:textarea wire:model="editEpicDescription" :label="__('Description (optional)')" rows="3" />
                         <flux:input wire:model="editEpicRepositoryUrl" :label="__('Repository URL (optional)')" type="text" placeholder="https://github.com/org/repo or git@github.com:org/repo.git" />
@@ -1083,7 +1086,10 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- Create Feature Modal --}}
     <flux:modal name="create-feature" focusable class="md:w-[520px]">
-        <form wire:submit="createFeature" class="space-y-5">
+        <form wire:submit="createFeature" class="space-y-5"
+            @keydown.ctrl.enter.prevent="$wire.createFeature()"
+            @keydown.meta.enter.prevent="$wire.createFeature()"
+        >
             <div>
                 <flux:heading size="lg">{{ __('New feature') }}</flux:heading>
                 <flux:subheading>{{ __('Features are groups of related tasks within an epic.') }}</flux:subheading>
@@ -1129,7 +1135,10 @@ new #[Title('Epic Board')] class extends Component {
             <div class="flex min-h-0 flex-1 gap-8">
                 {{-- Form --}}
                 <div class="flex w-full flex-col overflow-y-auto md:w-96 md:shrink-0">
-                    <form wire:submit="updateFeature" id="edit-feature-form" class="flex-1 space-y-5">
+                    <form wire:submit="updateFeature" id="edit-feature-form" class="flex-1 space-y-5"
+                        @keydown.ctrl.enter.prevent="$wire.updateFeature()"
+                        @keydown.meta.enter.prevent="$wire.updateFeature()"
+                    >
                         <flux:input wire:model="editFeatureName" :label="__('Name')" autofocus required />
 
                         <flux:select wire:model="editFeatureStatus" :label="__('Status')">
@@ -1253,7 +1262,10 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- Create Task Modal --}}
     <flux:modal name="create-task" focusable class="md:w-[520px]">
-        <form wire:submit="createTask" class="space-y-5">
+        <form wire:submit="createTask" class="space-y-5"
+            @keydown.ctrl.enter.prevent="$wire.createTask()"
+            @keydown.meta.enter.prevent="$wire.createTask()"
+        >
             <div>
                 <flux:heading size="lg">{{ __('New task') }}</flux:heading>
             </div>
@@ -1356,7 +1368,10 @@ new #[Title('Epic Board')] class extends Component {
                             </div>
                         @endif
                     @else
-                        <form wire:submit="saveTask" class="space-y-4">
+                        <form wire:submit="saveTask" class="space-y-4"
+                            @keydown.ctrl.enter.prevent="$wire.saveTask()"
+                            @keydown.meta.enter.prevent="$wire.saveTask()"
+                        >
                             <flux:input wire:model="editTaskTitle" :label="__('Title')" autofocus required />
                             <flux:textarea wire:model="editTaskDescription" :label="__('Description')" rows="3" />
 
