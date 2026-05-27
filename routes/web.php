@@ -17,6 +17,11 @@ Route::prefix('{current_team}')
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('epics', 'pages::epics.index')->name('epics');
     Route::livewire('epics/{epic}', 'pages::epics.show')->name('epics.board');
+    Route::livewire('epics/{epic}/kanban', 'pages::epics.show')->name('epics.board.kanban');
+    Route::livewire('epics/{epic}/queue', 'pages::epics.show')->name('epics.board.queue');
+    Route::livewire('epics/{epic}/edit', 'pages::epics.show')->name('epics.board.edit');
+    Route::livewire('epics/{epic}/features/{feature}', 'pages::epics.show')->name('epics.board.feature');
+    Route::livewire('epics/{epic}/tasks/{task}', 'pages::epics.show')->name('epics.board.task');
 });
 
 Route::middleware(['auth'])->group(function () {

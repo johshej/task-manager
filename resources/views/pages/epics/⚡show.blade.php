@@ -15,17 +15,12 @@ use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new #[Title('Epic Board')] class extends Component {
     public Epic $epic;
 
-    #[Url(except: 'board')]
     public string $viewMode = 'board';
-
-    #[Url(as: 'edit')]
-    public bool $editEpicOpen = false;
 
     public bool $showFilters = false;
     public array $filterFeatureIds = [];
@@ -38,7 +33,6 @@ new #[Title('Epic Board')] class extends Component {
     public string $newFeatureEnvironment = '';
 
     // Feature editing
-    #[Url(as: 'feature')]
     public ?string $editingFeatureId = null;
     public string $editFeatureName = '';
     public string $editFeatureStatus = '';
@@ -56,7 +50,6 @@ new #[Title('Epic Board')] class extends Component {
     public string $newTaskEnvironment = '';
 
     // Task detail / editing
-    #[Url(as: 'task')]
     public ?string $selectedTaskId = null;
     public bool $editingTask = false;
     public string $editTaskTitle = '';
@@ -89,13 +82,20 @@ new #[Title('Epic Board')] class extends Component {
     {
         $this->epic = $epic;
 
-        if ($this->editEpicOpen) {
-            $this->openEditEpic();
-        } elseif ($this->editingFeatureId) {
-            $this->openEditFeature($this->editingFeatureId);
-        } elseif ($this->selectedTaskId) {
-            $this->openTask($this->selectedTaskId);
-        }
+        $route = request()->route()?->getName();
+
+        $this->viewMode = match ($route) {
+            'epics.board.kanban' => 'kanban',
+            'epics.board.queue' => 'sort',
+            default => 'board',
+        };
+
+        match ($route) {
+            'epics.board.edit' => $this->openEditEpic(),
+            'epics.board.feature' => $this->openEditFeature(request()->route('feature')),
+            'epics.board.task' => $this->openTask(request()->route('task')),
+            default => null,
+        };
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -114,7 +114,6 @@ new #[Title('Epic Board')] class extends Component {
 
     public function openEditEpic(): void
     {
-        $this->editEpicOpen = true;
         $this->editEpicName = $this->epic->name;
         $this->editEpicDescription = $this->epic->description ?? '';
         $this->editEpicRepositoryUrl = $this->epic->repository_url ?? '';
@@ -127,8 +126,7 @@ new #[Title('Epic Board')] class extends Component {
 
     public function closeEditEpic(): void
     {
-        $this->editEpicOpen = false;
-        $this->modal('edit-epic')->close();
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     public function updateEpic(): void
@@ -154,9 +152,8 @@ new #[Title('Epic Board')] class extends Component {
         ]);
 
         $this->epic->refresh();
-        $this->editEpicOpen = false;
-        $this->modal('edit-epic')->close();
         Flux::toast(variant: 'success', text: 'Epic updated.');
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     // ── Features ──────────────────────────────────────────────────────────────
@@ -221,16 +218,14 @@ new #[Title('Epic Board')] class extends Component {
             'environment' => $this->editFeatureEnvironment ?: null,
         ]);
 
-        $this->editingFeatureId = null;
-        $this->modal('edit-feature')->close();
         unset($this->features);
         Flux::toast(variant: 'success', text: 'Feature updated.');
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     public function closeEditFeature(): void
     {
-        $this->editingFeatureId = null;
-        $this->modal('edit-feature')->close();
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     public function confirmDeleteFeature(string $featureId): void
@@ -243,11 +238,10 @@ new #[Title('Epic Board')] class extends Component {
     {
         Feature::findOrFail($this->deletingFeatureId)->delete();
         $this->deletingFeatureId = null;
-        $this->editingFeatureId = null;
-        $this->modal('edit-feature')->close();
         $this->modal('delete-feature')->close();
         unset($this->features, $this->kanbanColumns, $this->sortedQueue, $this->allFeatures);
         Flux::toast(variant: 'success', text: 'Feature deleted.');
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     // ── Tasks ─────────────────────────────────────────────────────────────────
@@ -351,8 +345,7 @@ new #[Title('Epic Board')] class extends Component {
 
     public function closeTask(): void
     {
-        $this->selectedTaskId = null;
-        $this->modal('task-detail')->close();
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     public function confirmDeleteTask(string $taskId): void
@@ -365,11 +358,10 @@ new #[Title('Epic Board')] class extends Component {
     {
         Task::findOrFail($this->deletingTaskId)->delete();
         $this->deletingTaskId = null;
-        $this->selectedTaskId = null;
-        $this->modal('task-detail')->close();
         $this->modal('delete-task')->close();
         unset($this->features, $this->kanbanColumns, $this->sortedQueue);
         Flux::toast(variant: 'success', text: 'Task deleted.');
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     // ── Conversation threads ──────────────────────────────────────────────────
@@ -611,7 +603,7 @@ new #[Title('Epic Board')] class extends Component {
         <div class="flex items-center justify-between gap-2">
             <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('epics')" wire:navigate />
             <div class="flex items-center gap-2">
-                <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEditEpic">
+                <flux:button variant="ghost" size="sm" icon="pencil" :href="route('epics.board.edit', $epic)" wire:navigate>
                     {{ __('Edit epic') }}
                 </flux:button>
                 <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-feature" wire:click="openAddFeature">
@@ -654,19 +646,22 @@ new #[Title('Epic Board')] class extends Component {
                 variant="{{ $viewMode === 'board' ? 'filled' : 'ghost' }}"
                 size="sm"
                 data-shortcut="view-board"
-                wire:click="$set('viewMode', 'board')"
+                :href="route('epics.board', $epic)"
+                wire:navigate
             >{{ __('Board') }}</flux:button>
             <flux:button
                 variant="{{ $viewMode === 'kanban' ? 'filled' : 'ghost' }}"
                 size="sm"
                 data-shortcut="view-kanban"
-                wire:click="$set('viewMode', 'kanban')"
+                :href="route('epics.board.kanban', $epic)"
+                wire:navigate
             >{{ __('Kanban') }}</flux:button>
             <flux:button
                 variant="{{ $viewMode === 'sort' ? 'filled' : 'ghost' }}"
                 size="sm"
                 data-shortcut="view-sort"
-                wire:click="$set('viewMode', 'sort')"
+                :href="route('epics.board.queue', $epic)"
+                wire:navigate
             >{{ __('AI Queue') }}</flux:button>
         </div>
         <flux:button
@@ -732,7 +727,7 @@ new #[Title('Epic Board')] class extends Component {
                                     <flux:button variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')" />
                                 </flux:tooltip>
                                 <flux:tooltip :content="__('Edit feature')">
-                                    <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn wire:click="openEditFeature('{{ $feature->id }}')" />
+                                    <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn :href="route('epics.board.feature', [$epic, $feature])" wire:navigate />
                                 </flux:tooltip>
                             </div>
                         </div>
@@ -751,10 +746,10 @@ new #[Title('Epic Board')] class extends Component {
                                             <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
                                         </svg>
                                     </div>
-                                    <button
-                                        type="button"
+                                    <a
                                         data-open-btn
-                                        wire:click="openTask('{{ $task->id }}')"
+                                        wire:navigate
+                                        href="{{ route('epics.board.task', [$epic, $task]) }}"
                                         class="flex flex-1 flex-col py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                                     >
                                         <div class="flex flex-wrap items-center gap-1.5">
@@ -772,7 +767,7 @@ new #[Title('Epic Board')] class extends Component {
                                             @endif
                                         </div>
                                         <span class="mt-1 text-sm font-medium">{{ $task->title }}</span>
-                                    </button>
+                                    </a>
                                 </li>
                             @endforeach
                         </ul>
@@ -834,13 +829,13 @@ new #[Title('Epic Board')] class extends Component {
                                             </svg>
                                         </div>
                                         <div class="min-w-0 flex-1">
-                                            <button
-                                                type="button"
+                                            <a
                                                 data-open-btn
-                                                wire:click="openTask('{{ $task->id }}')"
+                                                wire:navigate
+                                                href="{{ route('epics.board.task', [$epic, $task]) }}"
                                                 class="block w-full text-left text-sm font-medium leading-snug hover:underline"
                                                 style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;"
-                                            >{{ $task->title }}</button>
+                                            >{{ $task->title }}</a>
                                             <div class="mt-1.5 flex flex-wrap items-center gap-1">
                                                 <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
                                                 @if ($task->resolvedEnvironment())
@@ -901,12 +896,12 @@ new #[Title('Epic Board')] class extends Component {
                                         <flux:badge color="sky" size="sm">{{ $task->resolvedEnvironment() }}</flux:badge>
                                     @endif
                                 </div>
-                                <button
-                                    type="button"
+                                <a
                                     data-open-btn
-                                    wire:click="openTask('{{ $task->id }}')"
+                                    wire:navigate
+                                    href="{{ route('epics.board.task', [$epic, $task]) }}"
                                     class="mt-1 block text-left text-sm font-medium hover:underline"
-                                >{{ $task->title }}</button>
+                                >{{ $task->title }}</a>
                                 @if ($task->feature)
                                     <span class="text-xs text-zinc-400">{{ $task->feature->name }}</span>
                                 @endif
@@ -926,7 +921,7 @@ new #[Title('Epic Board')] class extends Component {
     {{-- ── Modals ───────────────────────────────────────────────────────────── --}}
 
     {{-- Edit Epic Modal --}}
-    <flux:modal name="edit-epic" focusable class="modal-fullscreen" x-on:close="$wire.set('editEpicOpen', false)">
+    <flux:modal name="edit-epic" focusable class="modal-fullscreen" x-on:close="$wire.closeEditEpic()">
         <div class="flex h-full flex-col">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit epic') }}</flux:heading>
 
@@ -1080,7 +1075,7 @@ new #[Title('Epic Board')] class extends Component {
     </flux:modal>
 
     {{-- Edit Feature Modal --}}
-    <flux:modal name="edit-feature" focusable class="modal-fullscreen" x-on:close="$wire.set('editingFeatureId', null)">
+    <flux:modal name="edit-feature" focusable class="modal-fullscreen" x-on:close="$wire.closeEditFeature()">
         <div class="flex h-full flex-col">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit feature') }}</flux:heading>
 
@@ -1255,7 +1250,7 @@ new #[Title('Epic Board')] class extends Component {
     </flux:modal>
 
     {{-- Task Detail Flyout --}}
-    <flux:modal name="task-detail" flyout class="modal-fullscreen" x-on:close="$wire.set('selectedTaskId', null)">
+    <flux:modal name="task-detail" flyout class="modal-fullscreen" x-on:close="$wire.closeTask()">
         @if ($this->selectedTask)
             <div class="flex h-full flex-col gap-0">
 
