@@ -15,12 +15,18 @@ use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new #[Title('Epic Board')] class extends Component {
     public Epic $epic;
 
+    #[Url(except: 'board')]
     public string $viewMode = 'board';
+
+    #[Url(as: 'edit')]
+    public bool $editEpicOpen = false;
+
     public bool $showFilters = false;
     public array $filterFeatureIds = [];
     public array $filterStatuses = [];
@@ -32,6 +38,7 @@ new #[Title('Epic Board')] class extends Component {
     public string $newFeatureEnvironment = '';
 
     // Feature editing
+    #[Url(as: 'feature')]
     public ?string $editingFeatureId = null;
     public string $editFeatureName = '';
     public string $editFeatureStatus = '';
@@ -49,6 +56,7 @@ new #[Title('Epic Board')] class extends Component {
     public string $newTaskEnvironment = '';
 
     // Task detail / editing
+    #[Url(as: 'task')]
     public ?string $selectedTaskId = null;
     public bool $editingTask = false;
     public string $editTaskTitle = '';
@@ -80,6 +88,14 @@ new #[Title('Epic Board')] class extends Component {
     public function mount(Epic $epic): void
     {
         $this->epic = $epic;
+
+        if ($this->editEpicOpen) {
+            $this->openEditEpic();
+        } elseif ($this->editingFeatureId) {
+            $this->openEditFeature($this->editingFeatureId);
+        } elseif ($this->selectedTaskId) {
+            $this->openTask($this->selectedTaskId);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -98,6 +114,7 @@ new #[Title('Epic Board')] class extends Component {
 
     public function openEditEpic(): void
     {
+        $this->editEpicOpen = true;
         $this->editEpicName = $this->epic->name;
         $this->editEpicDescription = $this->epic->description ?? '';
         $this->editEpicRepositoryUrl = $this->epic->repository_url ?? '';
@@ -106,6 +123,12 @@ new #[Title('Epic Board')] class extends Component {
         $this->editEpicAiMode = $this->epic->ai_mode ?? '';
         $this->editEpicEnvironment = $this->epic->environment ?? '';
         $this->modal('edit-epic')->show();
+    }
+
+    public function closeEditEpic(): void
+    {
+        $this->editEpicOpen = false;
+        $this->modal('edit-epic')->close();
     }
 
     public function updateEpic(): void
@@ -131,6 +154,7 @@ new #[Title('Epic Board')] class extends Component {
         ]);
 
         $this->epic->refresh();
+        $this->editEpicOpen = false;
         $this->modal('edit-epic')->close();
         Flux::toast(variant: 'success', text: 'Epic updated.');
     }
@@ -197,9 +221,16 @@ new #[Title('Epic Board')] class extends Component {
             'environment' => $this->editFeatureEnvironment ?: null,
         ]);
 
+        $this->editingFeatureId = null;
         $this->modal('edit-feature')->close();
         unset($this->features);
         Flux::toast(variant: 'success', text: 'Feature updated.');
+    }
+
+    public function closeEditFeature(): void
+    {
+        $this->editingFeatureId = null;
+        $this->modal('edit-feature')->close();
     }
 
     public function confirmDeleteFeature(string $featureId): void
@@ -212,6 +243,8 @@ new #[Title('Epic Board')] class extends Component {
     {
         Feature::findOrFail($this->deletingFeatureId)->delete();
         $this->deletingFeatureId = null;
+        $this->editingFeatureId = null;
+        $this->modal('edit-feature')->close();
         $this->modal('delete-feature')->close();
         unset($this->features, $this->kanbanColumns, $this->sortedQueue, $this->allFeatures);
         Flux::toast(variant: 'success', text: 'Feature deleted.');
@@ -316,6 +349,12 @@ new #[Title('Epic Board')] class extends Component {
         Flux::toast(variant: 'success', text: 'Task saved.');
     }
 
+    public function closeTask(): void
+    {
+        $this->selectedTaskId = null;
+        $this->modal('task-detail')->close();
+    }
+
     public function confirmDeleteTask(string $taskId): void
     {
         $this->deletingTaskId = $taskId;
@@ -326,6 +365,8 @@ new #[Title('Epic Board')] class extends Component {
     {
         Task::findOrFail($this->deletingTaskId)->delete();
         $this->deletingTaskId = null;
+        $this->selectedTaskId = null;
+        $this->modal('task-detail')->close();
         $this->modal('delete-task')->close();
         unset($this->features, $this->kanbanColumns, $this->sortedQueue);
         Flux::toast(variant: 'success', text: 'Task deleted.');
@@ -885,7 +926,7 @@ new #[Title('Epic Board')] class extends Component {
     {{-- ── Modals ───────────────────────────────────────────────────────────── --}}
 
     {{-- Edit Epic Modal --}}
-    <flux:modal name="edit-epic" focusable class="modal-fullscreen">
+    <flux:modal name="edit-epic" focusable class="modal-fullscreen" x-on:close="$wire.set('editEpicOpen', false)">
         <div class="flex h-full flex-col">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit epic') }}</flux:heading>
 
@@ -922,9 +963,7 @@ new #[Title('Epic Board')] class extends Component {
                     </form>
 
                     <div class="mt-5 flex shrink-0 justify-end gap-2">
-                        <flux:modal.close>
-                            <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
+                        <flux:button variant="filled" wire:click="closeEditEpic">{{ __('Cancel') }}</flux:button>
                         <flux:button variant="primary" form="edit-epic-form" type="submit">{{ __('Save changes') }}</flux:button>
                     </div>
                 </div>
@@ -1041,7 +1080,7 @@ new #[Title('Epic Board')] class extends Component {
     </flux:modal>
 
     {{-- Edit Feature Modal --}}
-    <flux:modal name="edit-feature" focusable class="modal-fullscreen">
+    <flux:modal name="edit-feature" focusable class="modal-fullscreen" x-on:close="$wire.set('editingFeatureId', null)">
         <div class="flex h-full flex-col">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit feature') }}</flux:heading>
 
@@ -1080,9 +1119,7 @@ new #[Title('Epic Board')] class extends Component {
                     <div class="mt-5 flex shrink-0 items-center justify-between gap-2">
                         <flux:button variant="danger" icon="trash" size="sm" wire:click="confirmDeleteFeature('{{ $editingFeatureId }}')">{{ __('Delete') }}</flux:button>
                         <div class="flex gap-2">
-                            <flux:modal.close>
-                                <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                            </flux:modal.close>
+                            <flux:button variant="filled" wire:click="closeEditFeature">{{ __('Cancel') }}</flux:button>
                             <flux:button variant="primary" form="edit-feature-form" type="submit">{{ __('Save changes') }}</flux:button>
                         </div>
                     </div>
@@ -1218,7 +1255,7 @@ new #[Title('Epic Board')] class extends Component {
     </flux:modal>
 
     {{-- Task Detail Flyout --}}
-    <flux:modal name="task-detail" flyout class="modal-fullscreen">
+    <flux:modal name="task-detail" flyout class="modal-fullscreen" x-on:close="$wire.set('selectedTaskId', null)">
         @if ($this->selectedTask)
             <div class="flex h-full flex-col gap-0">
 

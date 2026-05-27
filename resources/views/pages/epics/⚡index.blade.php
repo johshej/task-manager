@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new #[Title('Epics')] class extends Component {
@@ -20,6 +21,7 @@ new #[Title('Epics')] class extends Component {
     public string $aiMode = '';
     public string $environment = '';
 
+    #[Url]
     public ?string $editingEpicId = null;
 
     private static function defaultAiMode(): string
@@ -51,6 +53,10 @@ new #[Title('Epics')] class extends Component {
     public function mount(): void
     {
         $this->aiMode = self::defaultAiMode();
+
+        if ($this->editingEpicId) {
+            $this->editEpic($this->editingEpicId);
+        }
     }
     public string $editName = '';
     public string $editDescription = '';
@@ -137,8 +143,15 @@ new #[Title('Epics')] class extends Component {
             'environment' => $this->editEnvironment ?: null,
         ]);
 
+        $this->editingEpicId = null;
         $this->modal('edit-epic')->close();
         Flux::toast(variant: 'success', text: 'Epic updated.');
+    }
+
+    public function closeEditEpic(): void
+    {
+        $this->editingEpicId = null;
+        $this->modal('edit-epic')->close();
     }
 
     public function confirmDeleteEpic(string $epicId): void
@@ -323,7 +336,7 @@ new #[Title('Epics')] class extends Component {
     </flux:modal>
 
     {{-- Edit Epic Modal --}}
-    <flux:modal name="edit-epic" focusable class="modal-fullscreen">
+    <flux:modal name="edit-epic" focusable class="modal-fullscreen" x-on:close="$wire.set('editingEpicId', null)">
         <div class="flex h-full flex-col">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit epic') }}</flux:heading>
 
@@ -360,9 +373,7 @@ new #[Title('Epics')] class extends Component {
                     </form>
 
                     <div class="mt-5 flex shrink-0 justify-end gap-2">
-                        <flux:modal.close>
-                            <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
+                        <flux:button variant="filled" wire:click="closeEditEpic">{{ __('Cancel') }}</flux:button>
                         <flux:button variant="primary" form="edit-epic-form" type="submit">{{ __('Save changes') }}</flux:button>
                     </div>
                 </div>
