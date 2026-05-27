@@ -579,16 +579,13 @@ new #[Title('Epic Board')] class extends Component {
             </div>
         </div>
         <flux:heading size="xl">{{ $epic->name }}</flux:heading>
-        <div class="flex flex-wrap items-center gap-2">
-            <flux:badge color="{{ $epic->status->color() }}">{{ $epic->status->label() }}</flux:badge>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+            <span>Status: {{ $epic->status->label() }}</span>
             @if ($epic->tdd !== null)
-                <flux:badge color="{{ $epic->tdd ? 'green' : 'zinc' }}" size="sm">TDD: {{ $epic->tdd ? 'On' : 'Off' }}</flux:badge>
-            @endif
-            @if ($epic->ai_mode)
-                <flux:badge color="purple" size="sm">AI: {{ $epic->ai_mode }}</flux:badge>
+                <span>TDD: {{ $epic->tdd ? 'On' : 'Off' }}</span>
             @endif
             @if ($epic->environment)
-                <flux:badge color="sky" size="sm">{{ $epic->environment }}</flux:badge>
+                <span>Environment: {{ $epic->environment }}</span>
             @endif
         </div>
         @if ($epic->repository_url)
