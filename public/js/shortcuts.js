@@ -268,12 +268,7 @@
       const form = document.activeElement && document.activeElement.closest('form');
       if (form) {
         e.preventDefault();
-        let submit = form.querySelector('[type="submit"]');
-        // Also look for submit buttons outside the form that reference it via form="id"
-        if (!submit && form.id) {
-          submit = document.querySelector('[type="submit"][form="' + form.id + '"]');
-        }
-        if (submit) submit.click();
+        form.requestSubmit();
       }
       return;
     }
