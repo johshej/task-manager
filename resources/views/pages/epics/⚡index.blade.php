@@ -176,68 +176,66 @@ new #[Title('Epics')] class extends Component {
                 <div
                     data-selectable
                     data-href="{{ route('epics.board', $epic) }}"
-                    class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    class="flex flex-col rounded-xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
                 >
-                    <div class="flex flex-1 items-start gap-4 min-w-0">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <a
-                                    href="{{ route('epics.board', $epic) }}"
-                                    wire:navigate
-                                    class="font-semibold hover:text-blue-600 dark:hover:text-blue-400"
-                                >{{ $epic->name }}</a>
-                                <flux:badge color="{{ $epic->status->color() }}" size="sm">{{ $epic->status->label() }}</flux:badge>
-                            </div>
-                            @if ($epic->description)
-                                <flux:text class="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">
-                                    {{ Str::limit($epic->description, 120) }}
-                                </flux:text>
-                            @endif
-                            @if ($epic->repository_url)
-                                <a
-                                    href="{{ $epic->repository_url }}"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="mt-1 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 break-all"
-                                    wire:navigate.prevent
-                                >
-                                    <flux:icon.folder-git-2 class="size-3.5" />
-                                    {{ $epic->repository_url }}
-                                </a>
-                            @endif
+                    {{-- Line 1: title + buttons --}}
+                    <div class="flex items-start justify-between gap-2">
+                        <a
+                            href="{{ route('epics.board', $epic) }}"
+                            wire:navigate
+                            class="font-semibold hover:text-blue-600 dark:hover:text-blue-400"
+                        >{{ $epic->name }}</a>
+                        <div class="flex shrink-0 items-center gap-1">
+                            <flux:tooltip :content="__('Edit')">
+                                <flux:button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon="pencil"
+                                    data-edit-btn
+                                    wire:click="editEpic('{{ $epic->id }}')"
+                                />
+                            </flux:tooltip>
+                            <flux:tooltip :content="__('Delete')">
+                                <flux:button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon="trash"
+                                    wire:click="confirmDeleteEpic('{{ $epic->id }}')"
+                                />
+                            </flux:tooltip>
                         </div>
-                        <flux:text class="shrink-0 text-sm text-zinc-400">
+                    </div>
+
+                    {{-- Line 2: epic info --}}
+                    <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                        <flux:badge color="{{ $epic->status->color() }}" size="sm">{{ $epic->status->label() }}</flux:badge>
+                        @if ($epic->tdd !== null)
+                            <flux:badge color="{{ $epic->tdd ? 'lime' : 'zinc' }}" size="sm">{{ $epic->tdd ? 'TDD' : 'No TDD' }}</flux:badge>
+                        @endif
+                        @if ($epic->ai_mode)
+                            <flux:badge color="purple" size="sm" icon="cpu-chip">AI</flux:badge>
+                        @endif
+                        @if ($epic->environment)
+                            <flux:badge color="zinc" size="sm">{{ $epic->environment }}</flux:badge>
+                        @endif
+                        <flux:text class="text-sm text-zinc-400">
                             {{ $epic->features_count }} {{ Str::plural('feature', $epic->features_count) }}
                         </flux:text>
                     </div>
-                    <div class="ml-4 flex shrink-0 items-center gap-1">
-                        <flux:tooltip :content="__('Open board')">
-                            <flux:button
-                                variant="ghost"
-                                size="sm"
-                                icon="arrow-right"
-                                :href="route('epics.board', $epic)"
-                                wire:navigate
-                            />
-                        </flux:tooltip>
-                        <flux:tooltip :content="__('Edit')">
-                            <flux:button
-                                variant="ghost"
-                                size="sm"
-                                icon="pencil"
-                                data-edit-btn
-                                wire:click="editEpic('{{ $epic->id }}')"
-                            />
-                        </flux:tooltip>
-                        <flux:tooltip :content="__('Delete')">
-                            <flux:button
-                                variant="ghost"
-                                size="sm"
-                                icon="trash"
-                                wire:click="confirmDeleteEpic('{{ $epic->id }}')"
-                            />
-                        </flux:tooltip>
-                    </div>
+
+                    {{-- Line 3: repo URL --}}
+                    @if ($epic->repository_url)
+                        <a
+                            href="{{ $epic->repository_url }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="mt-1 inline-flex items-center gap-1 break-all text-xs text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400"
+                            wire:navigate.prevent
+                        >
+                            <flux:icon.folder-git-2 class="size-3.5 shrink-0" />
+                            {{ $epic->repository_url }}
+                        </a>
+                    @endif
                 </div>
             @empty
                 <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-20 dark:border-zinc-700 dark:bg-zinc-900/50">
