@@ -48,7 +48,7 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit epic</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">1</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">2</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">3</kbd> &nbsp; Board / Kanban / Queue</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">f</kbd> &nbsp; Toggle filters</div>
-            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> &nbsp; Add feature</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">+</kbd> &nbsp; Add feature</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Ctrl</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Save form</div>
           </div>
           <div>
@@ -248,7 +248,7 @@
       if (e.key === '1') { e.preventDefault(); handled = true; shortcut('view-board'); }
       if (e.key === '2') { e.preventDefault(); handled = true; shortcut('view-kanban'); }
       if (e.key === '3') { e.preventDefault(); handled = true; shortcut('view-sort'); }
-      if (e.key === 'n') { e.preventDefault(); handled = true; shortcut('add-feature'); }
+      if (e.key === 'n' || e.key === '+') { e.preventDefault(); handled = true; shortcut('add-feature'); }
       if (e.key === 'f') {
         e.preventDefault(); handled = true;
         if (isFilterOpen()) { closeFilter(); } else { openFilter(); }
@@ -268,7 +268,11 @@
       const form = document.activeElement && document.activeElement.closest('form');
       if (form) {
         e.preventDefault();
-        const submit = form.querySelector('[type="submit"]');
+        let submit = form.querySelector('[type="submit"]');
+        // Also look for submit buttons outside the form that reference it via form="id"
+        if (!submit && form.id) {
+          submit = document.querySelector('[type="submit"][form="' + form.id + '"]');
+        }
         if (submit) submit.click();
       }
       return;

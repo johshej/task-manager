@@ -614,12 +614,16 @@ new #[Title('Epic Board')] class extends Component {
         <div class="flex items-center justify-between gap-2">
             <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('epics')" wire:navigate />
             <div class="flex items-center gap-2">
-                <flux:button variant="ghost" size="sm" icon="pencil" data-shortcut="edit-epic" :href="route('epics.board.edit', $epic)" wire:navigate>
-                    {{ __('Edit epic') }}
-                </flux:button>
-                <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-feature" wire:click="openAddFeature">
-                    {{ __('Add feature') }}
-                </flux:button>
+                <flux:tooltip content="E">
+                    <flux:button variant="ghost" size="sm" icon="pencil" data-shortcut="edit-epic" :href="route('epics.board.edit', $epic)" wire:navigate>
+                        {{ __('Edit epic') }}
+                    </flux:button>
+                </flux:tooltip>
+                <flux:tooltip content="+ / N">
+                    <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-feature" wire:click="openAddFeature">
+                        {{ __('Add feature') }}
+                    </flux:button>
+                </flux:tooltip>
             </div>
         </div>
         <flux:heading size="xl">{{ $epic->name }}</flux:heading>
@@ -653,40 +657,48 @@ new #[Title('Epic Board')] class extends Component {
     {{-- View controls --}}
     <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-1 rounded-lg border border-zinc-200 p-1 dark:border-zinc-700">
-            <flux:button
-                variant="{{ $viewMode === 'board' ? 'filled' : 'ghost' }}"
-                size="sm"
-                data-shortcut="view-board"
-                :href="route('epics.board', $epic)"
-                wire:navigate
-            >{{ __('Board') }}</flux:button>
-            <flux:button
-                variant="{{ $viewMode === 'kanban' ? 'filled' : 'ghost' }}"
-                size="sm"
-                data-shortcut="view-kanban"
-                :href="route('epics.board.kanban', $epic)"
-                wire:navigate
-            >{{ __('Kanban') }}</flux:button>
-            <flux:button
-                variant="{{ $viewMode === 'sort' ? 'filled' : 'ghost' }}"
-                size="sm"
-                data-shortcut="view-sort"
-                :href="route('epics.board.queue', $epic)"
-                wire:navigate
-            >{{ __('AI Queue') }}</flux:button>
+            <flux:tooltip content="1">
+                <flux:button
+                    variant="{{ $viewMode === 'board' ? 'filled' : 'ghost' }}"
+                    size="sm"
+                    data-shortcut="view-board"
+                    :href="route('epics.board', $epic)"
+                    wire:navigate
+                >{{ __('Board') }}</flux:button>
+            </flux:tooltip>
+            <flux:tooltip content="2">
+                <flux:button
+                    variant="{{ $viewMode === 'kanban' ? 'filled' : 'ghost' }}"
+                    size="sm"
+                    data-shortcut="view-kanban"
+                    :href="route('epics.board.kanban', $epic)"
+                    wire:navigate
+                >{{ __('Kanban') }}</flux:button>
+            </flux:tooltip>
+            <flux:tooltip content="3">
+                <flux:button
+                    variant="{{ $viewMode === 'sort' ? 'filled' : 'ghost' }}"
+                    size="sm"
+                    data-shortcut="view-sort"
+                    :href="route('epics.board.queue', $epic)"
+                    wire:navigate
+                >{{ __('AI Queue') }}</flux:button>
+            </flux:tooltip>
         </div>
-        <flux:button
-            variant="{{ $showFilters ? 'filled' : 'ghost' }}"
-            size="sm"
-            icon="funnel"
-            data-shortcut="toggle-filters"
-            wire:click="$toggle('showFilters')"
-        >
-            {{ __('Filter') }}
-            @if (count($filterStatuses) > 0)
-                <flux:badge color="blue" size="sm" class="ml-1">{{ count($filterStatuses) }}</flux:badge>
-            @endif
-        </flux:button>
+        <flux:tooltip content="F">
+            <flux:button
+                variant="{{ $showFilters ? 'filled' : 'ghost' }}"
+                size="sm"
+                icon="funnel"
+                data-shortcut="toggle-filters"
+                wire:click="$toggle('showFilters')"
+            >
+                {{ __('Filter') }}
+                @if (count($filterStatuses) > 0)
+                    <flux:badge color="blue" size="sm" class="ml-1">{{ count($filterStatuses) }}</flux:badge>
+                @endif
+            </flux:button>
+        </flux:tooltip>
     </div>
 
     {{-- Filter panel --}}
@@ -990,7 +1002,9 @@ new #[Title('Epic Board')] class extends Component {
 
                     <div class="mt-5 flex shrink-0 justify-end gap-2">
                         <flux:button variant="filled" wire:click="closeEditEpic">{{ __('Cancel') }}</flux:button>
-                        <flux:button variant="primary" form="edit-epic-form" type="submit">{{ __('Save changes') }}</flux:button>
+                        <flux:tooltip content="Ctrl+Enter">
+                            <flux:button variant="primary" form="edit-epic-form" type="submit">{{ __('Save changes') }}</flux:button>
+                        </flux:tooltip>
                     </div>
                 </div>
 
@@ -1100,7 +1114,9 @@ new #[Title('Epic Board')] class extends Component {
                 <flux:modal.close>
                     <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
-                <flux:button variant="primary" type="submit">{{ __('Create feature') }}</flux:button>
+                <flux:tooltip content="Ctrl+Enter">
+                    <flux:button variant="primary" type="submit">{{ __('Create feature') }}</flux:button>
+                </flux:tooltip>
             </div>
         </form>
     </flux:modal>
@@ -1146,7 +1162,9 @@ new #[Title('Epic Board')] class extends Component {
                         <flux:button variant="danger" icon="trash" size="sm" wire:click="confirmDeleteFeature('{{ $editingFeatureId }}')">{{ __('Delete') }}</flux:button>
                         <div class="flex gap-2">
                             <flux:button variant="filled" wire:click="closeEditFeature">{{ __('Cancel') }}</flux:button>
-                            <flux:button variant="primary" form="edit-feature-form" type="submit">{{ __('Save changes') }}</flux:button>
+                            <flux:tooltip content="Ctrl+Enter">
+                                <flux:button variant="primary" form="edit-feature-form" type="submit">{{ __('Save changes') }}</flux:button>
+                            </flux:tooltip>
                         </div>
                     </div>
                 </div>
@@ -1275,7 +1293,9 @@ new #[Title('Epic Board')] class extends Component {
                 <flux:modal.close>
                     <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
-                <flux:button variant="primary" type="submit">{{ __('Create task') }}</flux:button>
+                <flux:tooltip content="Ctrl+Enter">
+                    <flux:button variant="primary" type="submit">{{ __('Create task') }}</flux:button>
+                </flux:tooltip>
             </div>
         </form>
     </flux:modal>
@@ -1380,7 +1400,9 @@ new #[Title('Epic Board')] class extends Component {
                                 <flux:button variant="ghost" wire:click="cancelEditingTask" type="button">
                                     {{ __('Cancel') }}
                                 </flux:button>
-                                <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                                <flux:tooltip content="Ctrl+Enter">
+                                    <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                                </flux:tooltip>
                             </div>
                         </form>
                     @endif

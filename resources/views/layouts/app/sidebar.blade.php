@@ -108,6 +108,6 @@
                 settings: '{{ route('profile.edit') }}',
             };
         </script>
-        <script src="{{ asset('js/shortcuts.js') }}"></script>
+        <script src="{{ asset('js/shortcuts.js') }}?v={{ filemtime(public_path('js/shortcuts.js')) }}"></script>
     </body>
 </html>
