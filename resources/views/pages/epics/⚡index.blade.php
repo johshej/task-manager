@@ -160,7 +160,7 @@ new #[Title('Epics')] class extends Component {
     }
 }; ?>
 
-<div class="flex h-full w-full flex-1 flex-col gap-6 p-6" data-view="epics-index">
+<div class="flex h-full w-full flex-1 flex-col gap-6" data-view="epics-index">
         <div class="flex items-center justify-between">
             <div>
                 <flux:heading size="xl">{{ __('Epics') }}</flux:heading>

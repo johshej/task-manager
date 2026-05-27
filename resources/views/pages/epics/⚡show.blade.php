@@ -59,6 +59,10 @@ new #[Title('Epic Board')] class extends Component {
     public string $editTaskAiMode = '';
     public string $editTaskEnvironment = '';
 
+    // Deletion confirmation
+    public ?string $deletingFeatureId = null;
+    public ?string $deletingTaskId = null;
+
     // Conversation thread replies
     public string $taskReplyBody = '';
     public string $featureReplyBody = '';
@@ -198,6 +202,21 @@ new #[Title('Epic Board')] class extends Component {
         Flux::toast(variant: 'success', text: 'Feature updated.');
     }
 
+    public function confirmDeleteFeature(string $featureId): void
+    {
+        $this->deletingFeatureId = $featureId;
+        $this->modal('delete-feature')->show();
+    }
+
+    public function deleteFeature(): void
+    {
+        Feature::findOrFail($this->deletingFeatureId)->delete();
+        $this->deletingFeatureId = null;
+        $this->modal('delete-feature')->close();
+        unset($this->features, $this->kanbanColumns, $this->sortedQueue, $this->allFeatures);
+        Flux::toast(variant: 'success', text: 'Feature deleted.');
+    }
+
     // ── Tasks ─────────────────────────────────────────────────────────────────
 
     public function openAddTask(string $featureId): void
@@ -295,6 +314,21 @@ new #[Title('Epic Board')] class extends Component {
         $this->editingTask = false;
         unset($this->selectedTask, $this->features, $this->kanbanColumns, $this->sortedQueue);
         Flux::toast(variant: 'success', text: 'Task saved.');
+    }
+
+    public function confirmDeleteTask(string $taskId): void
+    {
+        $this->deletingTaskId = $taskId;
+        $this->modal('delete-task')->show();
+    }
+
+    public function deleteTask(): void
+    {
+        Task::findOrFail($this->deletingTaskId)->delete();
+        $this->deletingTaskId = null;
+        $this->modal('delete-task')->close();
+        unset($this->features, $this->kanbanColumns, $this->sortedQueue);
+        Flux::toast(variant: 'success', text: 'Task deleted.');
     }
 
     // ── Conversation threads ──────────────────────────────────────────────────
@@ -529,7 +563,7 @@ new #[Title('Epic Board')] class extends Component {
     }
 }; ?>
 
-<div class="flex h-full w-full flex-1 flex-col gap-6 p-6" data-view="epic-board">
+<div class="flex h-full w-full flex-1 flex-col gap-6" data-view="epic-board">
 
     {{-- Page header --}}
     <div class="flex flex-col gap-1">
@@ -662,6 +696,9 @@ new #[Title('Epic Board')] class extends Component {
                                 <flux:tooltip :content="__('Edit feature')">
                                     <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn wire:click="openEditFeature('{{ $feature->id }}')" />
                                 </flux:tooltip>
+                                <flux:tooltip :content="__('Delete feature')">
+                                    <flux:button variant="ghost" size="sm" icon="trash" wire:click="confirmDeleteFeature('{{ $feature->id }}')" />
+                                </flux:tooltip>
                             </div>
                         </div>
                         <span class="font-semibold">{{ $feature->name }}</span>
@@ -683,7 +720,7 @@ new #[Title('Epic Board')] class extends Component {
                                         type="button"
                                         data-open-btn
                                         wire:click="openTask('{{ $task->id }}')"
-                                        class="flex flex-1 flex-col py-3 pr-5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                                        class="flex flex-1 flex-col py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                                     >
                                         <div class="flex flex-wrap items-center gap-1.5">
                                             <flux:badge color="{{ $task->status->color() }}" size="sm">{{ $task->status->label() }}</flux:badge>
@@ -701,6 +738,7 @@ new #[Title('Epic Board')] class extends Component {
                                         </div>
                                         <span class="mt-1 text-sm font-medium">{{ $task->title }}</span>
                                     </button>
+                                    <flux:button variant="ghost" size="sm" icon="trash" class="shrink-0 self-center pr-3" wire:click="confirmDeleteTask('{{ $task->id }}')" />
                                 </li>
                             @endforeach
                         </ul>
@@ -839,6 +877,7 @@ new #[Title('Epic Board')] class extends Component {
                                     <span class="text-xs text-zinc-400">{{ $task->feature->name }}</span>
                                 @endif
                             </div>
+                            <flux:button variant="ghost" size="sm" icon="trash" class="shrink-0 self-center" wire:click="confirmDeleteTask('{{ $task->id }}')" />
                         </li>
                     @endforeach
                 </ul>
@@ -1366,6 +1405,38 @@ new #[Title('Epic Board')] class extends Component {
                 </div>
             </div>
         @endif
+    </flux:modal>
+
+    {{-- Delete Feature Modal --}}
+    <flux:modal name="delete-feature" class="w-full sm:min-w-[22rem]">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Delete feature') }}</flux:heading>
+                <flux:text class="mt-2">{{ __('This will permanently delete the feature and all its tasks. This action cannot be undone.') }}</flux:text>
+            </div>
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+                <flux:button variant="danger" wire:click="deleteFeature">{{ __('Delete') }}</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Delete Task Modal --}}
+    <flux:modal name="delete-task" class="w-full sm:min-w-[22rem]">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Delete task') }}</flux:heading>
+                <flux:text class="mt-2">{{ __('This will permanently delete the task. This action cannot be undone.') }}</flux:text>
+            </div>
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+                <flux:button variant="danger" wire:click="deleteTask">{{ __('Delete') }}</flux:button>
+            </div>
+        </div>
     </flux:modal>
 
 </div>
