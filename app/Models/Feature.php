@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[ObservedBy(FeatureObserver::class)]
-#[Fillable(['epic_id', 'name', 'description', 'status', 'order_index', 'tdd', 'ai_mode', 'environment'])]
+#[Fillable(['epic_id', 'name', 'description', 'status', 'order_index', 'execution_order', 'tdd', 'ai_mode', 'environment'])]
 class Feature extends Model
 {
     /** @use HasFactory<FeatureFactory> */
@@ -25,6 +25,7 @@ class Feature extends Model
         return [
             'status' => FeatureStatus::class,
             'order_index' => 'integer',
+            'execution_order' => 'integer',
             'tdd' => 'boolean',
         ];
     }

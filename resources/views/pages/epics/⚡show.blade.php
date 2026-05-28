@@ -476,19 +476,39 @@ new #[Title('Epic Board')] class extends Component {
         unset($this->kanbanColumns, $this->features);
     }
 
-    public function sortQueue(string $taskId, int $position): void
+    public function sortQueue(string $itemId, int $position): void
     {
-        $ids = Task::whereHas('feature', fn ($q) => $q->where('epic_id', $this->epic->id))
+        // itemId format: "task:{uuid}" or "feature:{uuid}"
+        [$type, $id] = str_contains($itemId, ':') ? explode(':', $itemId, 2) : ['task', $itemId];
+
+        $tasks = Task::whereHas('feature', fn ($q) => $q->where('epic_id', $this->epic->id))
             ->orderByRaw('COALESCE(execution_order, 999999)')
             ->orderBy('created_at')
-            ->pluck('id')
+            ->get()
+            ->map(fn ($t) => ['type' => 'task', 'id' => $t->id, 'order' => $t->execution_order ?? PHP_INT_MAX]);
+
+        $features = Feature::where('epic_id', $this->epic->id)
+            ->doesntHave('tasks')
+            ->orderByRaw('COALESCE(execution_order, 999999)')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn ($f) => ['type' => 'feature', 'id' => $f->id, 'order' => $f->execution_order ?? PHP_INT_MAX]);
+
+        $allItems = $tasks->merge($features)
+            ->sortBy('order')
+            ->values()
+            ->map(fn ($item) => ['type' => $item['type'], 'id' => $item['id']])
             ->toArray();
 
-        $ids = array_values(array_filter($ids, fn ($id) => $id !== $taskId));
-        array_splice($ids, $position, 0, [$taskId]);
+        $allItems = array_values(array_filter($allItems, fn ($item) => !($item['type'] === $type && $item['id'] === $id)));
+        array_splice($allItems, $position, 0, [['type' => $type, 'id' => $id]]);
 
-        foreach ($ids as $idx => $id) {
-            Task::where('id', $id)->update(['execution_order' => $idx]);
+        foreach ($allItems as $idx => $item) {
+            if ($item['type'] === 'task') {
+                Task::where('id', $item['id'])->update(['execution_order' => $idx]);
+            } else {
+                Feature::where('id', $item['id'])->update(['execution_order' => $idx]);
+            }
         }
 
         unset($this->sortedQueue);
@@ -547,17 +567,24 @@ new #[Title('Epic Board')] class extends Component {
         return $columns;
     }
 
-    /** @return Collection<int, Task> */
+    /** @return Collection<int, Task|Feature> */
     #[Computed]
     public function sortedQueue(): Collection
     {
-        return Task::with(['feature', 'latestHistory'])
+        $tasks = Task::with(['feature', 'latestHistory'])
             ->whereHas('feature', fn ($q) => $q->where('epic_id', $this->epic->id))
             ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('feature_id', $this->filterFeatureIds))
             ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
-            ->orderByRaw('COALESCE(execution_order, 999999)')
-            ->orderBy('created_at')
             ->get();
+
+        $features = Feature::where('epic_id', $this->epic->id)
+            ->doesntHave('tasks')
+            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
+            ->get();
+
+        return $tasks->merge($features)
+            ->sortBy(fn ($item) => [$item->execution_order ?? PHP_INT_MAX, $item->created_at->timestamp])
+            ->values();
     }
 
     #[Computed]
@@ -904,21 +931,22 @@ new #[Title('Epic Board')] class extends Component {
                 <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
                     {{ __('Drag tasks to set the order in which the AI should execute them.') }}
                 </flux:text>
-                <flux:text class="text-xs text-zinc-400">{{ $this->sortedQueue->count() }} {{ Str::plural('task', $this->sortedQueue->count()) }}</flux:text>
+                <flux:text class="text-xs text-zinc-400">{{ $this->sortedQueue->count() }} {{ Str::plural('item', $this->sortedQueue->count()) }}</flux:text>
             </div>
 
             @if ($this->sortedQueue->isNotEmpty())
                 <ul wire:sort="sortQueue" class="list-none space-y-2">
-                    @foreach ($this->sortedQueue as $index => $task)
+                    @foreach ($this->sortedQueue as $index => $item)
+                        @php $isTask = $item instanceof \App\Models\Task; @endphp
                         <li
-                            wire:key="queue-{{ $task->id }}"
-                            wire:sort:item="{{ $task->id }}"
+                            wire:key="queue-{{ $item->id }}"
+                            wire:sort:item="{{ $isTask ? 'task' : 'feature' }}:{{ $item->id }}"
                             data-selectable
                             @class([
                                 'flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900',
-                                'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $task->id,
+                                'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $item->id,
                             ])
-                            @if ($highlightedId === $task->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
+                            @if ($highlightedId === $item->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
                         >
                             <span class="w-7 shrink-0 pt-0.5 text-right font-mono text-sm text-zinc-400">{{ $index + 1 }}</span>
                             <div wire:sort:handle class="shrink-0 cursor-grab pt-0.5 text-zinc-300 hover:text-zinc-500">
@@ -929,24 +957,36 @@ new #[Title('Epic Board')] class extends Component {
                                 </svg>
                             </div>
                             <div class="min-w-0 flex-1">
+                                {{-- Badges --}}
                                 <div class="flex flex-wrap items-center gap-1.5">
-                                    <flux:badge color="{{ $task->status->color() }}" size="sm">{{ $task->status->label() }}</flux:badge>
-                                    <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
-                                    @if ($task->resolvedTdd() !== null)
-                                        <flux:badge color="{{ $task->resolvedTdd() ? 'green' : 'zinc' }}" size="sm">TDD</flux:badge>
+                                    <flux:badge color="{{ $item->status->color() }}" size="sm">{{ $item->status->label() }}</flux:badge>
+                                    @if ($isTask)
+                                        <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $item->priority }}</flux:badge>
                                     @endif
-                                    @if ($task->resolvedEnvironment())
-                                        <flux:badge color="sky" size="sm">{{ $task->resolvedEnvironment() }}</flux:badge>
+                                    @if ($item->resolvedTdd() !== null)
+                                        <flux:badge color="{{ $item->resolvedTdd() ? 'green' : 'zinc' }}" size="sm">TDD</flux:badge>
+                                    @endif
+                                    @if ($item->resolvedEnvironment())
+                                        <flux:badge color="sky" size="sm">{{ $item->resolvedEnvironment() }}</flux:badge>
                                     @endif
                                 </div>
-                                <a
-                                    data-open-btn
-                                    wire:navigate
-                                    href="{{ route('epics.board.task', [$epic, $task]) }}"
-                                    class="mt-1 block text-left text-sm font-medium hover:underline"
-                                >{{ $task->title }}</a>
-                                @if ($task->feature)
-                                    <span class="text-xs text-zinc-400">{{ $task->feature->name }}</span>
+
+                                {{-- Feature name (always above, prominent) --}}
+                                @if ($isTask && $item->feature)
+                                    <p class="mt-1.5 truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">Feature: {{ $item->feature->name }}</p>
+                                    <a
+                                        data-open-btn
+                                        wire:navigate
+                                        href="{{ route('epics.board.task', [$epic, $item]) }}"
+                                        class="mt-0.5 block truncate text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+                                    >{{ $item->title }}</a>
+                                @elseif (! $isTask)
+                                    <a
+                                        data-open-btn
+                                        wire:navigate
+                                        href="{{ route('epics.board.feature', [$epic, $item]) }}"
+                                        class="mt-1.5 block truncate text-sm font-semibold text-zinc-800 hover:underline dark:text-zinc-100"
+                                    >Feature: {{ $item->name }}</a>
                                 @endif
                             </div>
                         </li>
@@ -954,8 +994,8 @@ new #[Title('Epic Board')] class extends Component {
                 </ul>
             @else
                 <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-16 dark:border-zinc-700 dark:bg-zinc-900/50">
-                    <flux:text class="text-base font-medium text-zinc-500 dark:text-zinc-400">{{ __('No tasks in queue') }}</flux:text>
-                    <flux:text class="mt-1 text-sm text-zinc-400 dark:text-zinc-500">{{ __('Create tasks or adjust your filters.') }}</flux:text>
+                    <flux:text class="text-base font-medium text-zinc-500 dark:text-zinc-400">{{ __('No items in queue') }}</flux:text>
+                    <flux:text class="mt-1 text-sm text-zinc-400 dark:text-zinc-500">{{ __('Create features or tasks, or adjust your filters.') }}</flux:text>
                 </div>
             @endif
         </div>
