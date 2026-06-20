@@ -157,7 +157,7 @@ test('can create a task on the board', function () {
 
 test('can edit a feature on the board', function () {
     $epic = Epic::factory()->create();
-    $feature = Feature::factory()->for($epic)->create(['name' => 'Old Name', 'status' => FeatureStatus::Planned]);
+    $feature = Feature::factory()->for($epic)->create(['name' => 'Old Name', 'status' => FeatureStatus::Todo]);
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openEditFeature', $feature->id)

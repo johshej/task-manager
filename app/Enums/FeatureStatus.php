@@ -4,15 +4,15 @@ namespace App\Enums;
 
 enum FeatureStatus: string
 {
-    case Planned = 'planned';
+    case Todo = 'todo';
     case Active = 'active';
     case Done = 'done';
     case Archived = 'archived';
 
     public function label(): string
     {
-        return match($this) {
-            self::Planned => 'Planned',
+        return match ($this) {
+            self::Todo => 'To Do',
             self::Active => 'Active',
             self::Done => 'Done',
             self::Archived => 'Archived',
@@ -21,8 +21,8 @@ enum FeatureStatus: string
 
     public function color(): string
     {
-        return match($this) {
-            self::Planned => 'zinc',
+        return match ($this) {
+            self::Todo => 'zinc',
             self::Active => 'sky',
             self::Done => 'green',
             self::Archived => 'zinc',

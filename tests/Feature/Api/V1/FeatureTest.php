@@ -28,7 +28,7 @@ test('can create a feature', function () {
         ->postJson('/api/v1/features', [
             'epic_id' => $this->epic->id,
             'name' => 'My Feature',
-            'status' => FeatureStatus::Planned->value,
+            'status' => FeatureStatus::Todo->value,
         ])
         ->assertCreated()
         ->assertJsonPath('data.name', 'My Feature')

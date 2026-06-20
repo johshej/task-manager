@@ -198,7 +198,7 @@ new #[Title('Epic Board')] class extends Component {
 
         $this->epic->features()->create([
             'name' => $this->newFeatureName,
-            'status' => FeatureStatus::Planned,
+            'status' => FeatureStatus::Todo,
             'order_index' => $this->epic->features()->count(),
             'tdd' => $this->tddNullable($this->newFeatureTdd),
             'ai_mode' => $this->newFeatureAiMode ?: null,
@@ -594,12 +594,11 @@ new #[Title('Epic Board')] class extends Component {
             ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
             ->get();
 
-        $features = count($this->filterStatuses) === 0
-            ? Feature::where('epic_id', $this->epic->id)
-                ->doesntHave('tasks')
-                ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
-                ->get()
-            : collect();
+        $features = Feature::where('epic_id', $this->epic->id)
+            ->doesntHave('tasks')
+            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
+            ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
+            ->get();
 
         return $tasks->merge($features)
             ->sortBy(fn ($item) => [$item->execution_order ?? PHP_INT_MAX, $item->created_at->timestamp])
