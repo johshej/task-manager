@@ -466,6 +466,25 @@ new #[Title('Epic Board')] class extends Component {
         }
 
         unset($this->features);
+        $this->dispatch('board-sorted', id: $taskId, type: 'task');
+    }
+
+    public function sortBoardFeature(string $featureId, int $position): void
+    {
+        $ids = Feature::where('epic_id', $this->epic->id)
+            ->where('id', '!=', $featureId)
+            ->orderBy('order_index')
+            ->pluck('id')
+            ->toArray();
+
+        array_splice($ids, $position, 0, [$featureId]);
+
+        foreach ($ids as $idx => $id) {
+            Feature::where('id', $id)->update(['order_index' => $idx]);
+        }
+
+        unset($this->features);
+        $this->dispatch('board-sorted', id: $featureId, type: 'feature');
     }
 
     public function sortKanban(string $taskId, int $position, string $statusValue): void
@@ -772,9 +791,12 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- ── Board view ──────────────────────────────────────────────────────── --}}
     @if ($viewMode === 'board')
-        <div class="space-y-6" data-board-mode="board">
+        <div class="space-y-6" data-board-mode="board"
+             x-on:board-task-reorder.window="$wire.sortBoard($event.detail.taskId, $event.detail.position)"
+             x-on:board-feature-reorder.window="$wire.sortBoardFeature($event.detail.featureId, $event.detail.position)">
             @forelse ($this->features as $feature)
                 <div
+                    wire:key="board-feature-{{ $feature->id }}"
                     @class([
                         'rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900',
                         'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $feature->id,
@@ -782,7 +804,7 @@ new #[Title('Epic Board')] class extends Component {
                     @if ($highlightedId === $feature->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
                 >
                     {{-- Feature header --}}
-                    <div data-selectable class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
+                    <div data-selectable data-feature-id="{{ $feature->id }}" class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
                         <div class="flex items-center justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-1.5">
                                 <flux:badge color="{{ $feature->status->color() }}" size="sm">{{ $feature->status->label() }}</flux:badge>

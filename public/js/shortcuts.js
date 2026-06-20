@@ -43,7 +43,7 @@
           <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Epic board</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select item</div>
-            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Move item in queue</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Move item (board/queue)</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">←</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">→</kbd> &nbsp; Switch column (kanban)</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected task</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit epic</div>
@@ -184,6 +184,49 @@
     window.dispatchEvent(new CustomEvent('queue-reorder', { detail: { itemId, position: newIndex } }));
   }
 
+  // ── Board reorder ─────────────────────────────────────────────────────────
+
+  function moveBoardItem(delta) {
+    const active = currentActive();
+    if (!active) return;
+
+    if (active.hasAttribute('data-feature-id')) {
+      const featureId = active.getAttribute('data-feature-id');
+      const headers = Array.from(document.querySelectorAll('[data-feature-id]'));
+      const currentIndex = headers.indexOf(active);
+      if (currentIndex < 0) return;
+      const newIndex = Math.max(0, Math.min(headers.length - 1, currentIndex + delta));
+      if (newIndex === currentIndex) return;
+      window.dispatchEvent(new CustomEvent('board-feature-reorder', { detail: { featureId, position: newIndex } }));
+      return;
+    }
+
+    const taskId = active.getAttribute('wire:sort:item');
+    const list = active.closest('ul');
+    if (taskId && list) {
+      const tasks = Array.from(list.querySelectorAll('[data-selectable]'));
+      const currentIndex = tasks.indexOf(active);
+      if (currentIndex < 0) return;
+      const newIndex = Math.max(0, Math.min(tasks.length - 1, currentIndex + delta));
+      if (newIndex === currentIndex) return;
+      window.dispatchEvent(new CustomEvent('board-task-reorder', { detail: { taskId, position: newIndex } }));
+    }
+  }
+
+  document.addEventListener('board-sorted', function (e) {
+    const { id, type } = e.detail;
+    setTimeout(function () {
+      let el = null;
+      if (type === 'task') {
+        el = Array.from(document.querySelectorAll('[data-selectable]'))
+          .find(function (n) { return n.getAttribute('wire:sort:item') === id; });
+      } else {
+        el = document.querySelector('[data-feature-id="' + id + '"]');
+      }
+      if (el) setActive(el);
+    }, 0);
+  });
+
   // ── Filter panel ──────────────────────────────────────────────────────────
 
   let savedActiveBeforeFilter = null;
@@ -260,11 +303,15 @@
       } else {
         if (e.key === 'ArrowUp') {
           e.preventDefault(); handled = true;
-          if (e.shiftKey && mode === 'queue') moveQueueItem(-1); else moveSelection(-1);
+          if (e.shiftKey && mode === 'queue') moveQueueItem(-1);
+          else if (e.shiftKey && mode === 'board') moveBoardItem(-1);
+          else moveSelection(-1);
         }
         if (e.key === 'ArrowDown') {
           e.preventDefault(); handled = true;
-          if (e.shiftKey && mode === 'queue') moveQueueItem(1); else moveSelection(1);
+          if (e.shiftKey && mode === 'queue') moveQueueItem(1);
+          else if (e.shiftKey && mode === 'board') moveBoardItem(1);
+          else moveSelection(1);
         }
       }
 
