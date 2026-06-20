@@ -340,7 +340,7 @@ new #[Title('Epic Board')] class extends Component {
     {
         $task = Task::findOrFail($taskId);
         $this->selectedTaskId = $taskId;
-        $this->editingTask = false;
+        $this->editingTask = true;
         $this->editTaskTitle = $task->title;
         $this->editTaskDescription = $task->description ?? '';
         $this->editTaskStatus = $task->status->value;
@@ -384,16 +384,17 @@ new #[Title('Epic Board')] class extends Component {
             'environment' => $this->editTaskEnvironment ?: null,
         ]);
 
-        $this->editingTask = false;
         $this->lastEditedId = $this->selectedTaskId;
         unset($this->selectedTask, $this->features, $this->kanbanColumns, $this->sortedQueue);
         Flux::toast(variant: 'success', text: 'Task saved.');
+        $this->closeTask();
     }
 
     public function closeTask(): void
     {
-        if ($this->lastEditedId) {
-            session()->flash('highlighted_id', $this->lastEditedId);
+        $highlightId = $this->selectedTaskId ?? $this->lastEditedId;
+        if ($highlightId) {
+            session()->flash('highlighted_id', $highlightId);
         }
         $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
@@ -406,11 +407,23 @@ new #[Title('Epic Board')] class extends Component {
 
     public function deleteTask(): void
     {
-        Task::findOrFail($this->deletingTaskId)->delete();
+        $task = Task::findOrFail($this->deletingTaskId);
+        $featureId = $task->feature_id;
+
+        $siblings = Task::where('feature_id', $featureId)
+            ->orderBy('order_index')
+            ->pluck('id')
+            ->toArray();
+        $pos = array_search($this->deletingTaskId, $siblings, strict: true);
+        $nextId = ($pos !== false) ? ($siblings[$pos + 1] ?? $siblings[$pos - 1] ?? null) : null;
+        $highlightId = $nextId ?? $featureId;
+
+        $task->delete();
         $this->deletingTaskId = null;
         $this->modal('delete-task')->close();
         unset($this->features, $this->kanbanColumns, $this->sortedQueue);
         Flux::toast(variant: 'success', text: 'Task deleted.');
+        session()->flash('highlighted_id', $highlightId);
         $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
@@ -847,7 +860,7 @@ new #[Title('Epic Board')] class extends Component {
                     ])
                 >
                     {{-- Feature header --}}
-                    <div data-selectable data-feature-id="{{ $feature->id }}" class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
+                    <div data-selectable data-feature-id="{{ $feature->id }}" @if ($highlightedId === $feature->id) data-highlighted @endif class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
                         <div class="flex items-center justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-1.5">
                                 <flux:badge color="{{ $feature->status->color() }}" size="sm">{{ $feature->status->label() }}</flux:badge>
@@ -914,6 +927,7 @@ new #[Title('Epic Board')] class extends Component {
                                     wire:key="board-{{ $task->id }}"
                                     wire:sort:item="{{ $task->id }}"
                                     data-selectable
+                                    @if ($highlightedId === $task->id) data-highlighted @endif
                                     @class(['flex items-start', 'bg-blue-50 dark:bg-blue-950/20' => $highlightedId === $task->id])
                                     @if ($highlightedId === $task->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
                                 >
@@ -996,6 +1010,7 @@ new #[Title('Epic Board')] class extends Component {
                                     wire:key="kanban-{{ $task->id }}"
                                     wire:sort:item="{{ $task->id }}"
                                     data-selectable
+                                    @if ($highlightedId === $task->id) data-highlighted @endif
                                     @class([
                                         'rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900',
                                         'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $task->id,
@@ -1060,6 +1075,7 @@ new #[Title('Epic Board')] class extends Component {
                             wire:key="queue-{{ $item->id }}"
                             wire:sort:item="{{ $isTask ? 'task' : 'feature' }}:{{ $item->id }}"
                             data-selectable
+                            @if ($highlightedId === $item->id) data-highlighted @endif
                             @class([
                                 'flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900',
                                 'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $item->id,
@@ -1475,110 +1491,131 @@ new #[Title('Epic Board')] class extends Component {
         @if ($this->selectedTask)
             <div class="flex h-full flex-col gap-0">
 
-                {{-- Task info / edit form --}}
+                {{-- Task edit form (always open) --}}
                 <div class="border-b border-zinc-200 pb-5 dark:border-zinc-700">
-                    @if (! $editingTask)
-                        <div class="flex items-start justify-between gap-3">
-                            <flux:heading size="lg" class="leading-snug">{{ $this->selectedTask->title }}</flux:heading>
-                            <div class="flex shrink-0 items-center gap-1">
-                                <flux:button variant="ghost" size="sm" icon="pencil" wire:click="startEditingTask">{{ __('Edit') }}</flux:button>
-                                <flux:button variant="ghost" size="sm" icon="trash" wire:click="confirmDeleteTask('{{ $this->selectedTask->id }}')" />
+                    <form wire:submit="saveTask" class="space-y-4"
+                        @keydown.ctrl.enter.prevent="$wire.saveTask()"
+                        @keydown.meta.enter.prevent="$wire.saveTask()"
+                    >
+                        {{-- Title + delete --}}
+                        <div class="flex items-end gap-2">
+                            <div class="min-w-0 flex-1">
+                                <flux:input wire:model="editTaskTitle" :label="__('Title')" autofocus required />
+                            </div>
+                            <flux:button variant="ghost" size="sm" icon="trash" type="button" wire:click="confirmDeleteTask('{{ $this->selectedTask->id }}')" />
+                        </div>
+
+                        {{-- Description: auto-grow + maximize --}}
+                        <div x-data="{
+                            descExpanded: false,
+                            draft: '',
+                            openMax() {
+                                this.draft = document.querySelector('[wire\\:model=\'editTaskDescription\']')?.value ?? '';
+                                this.descExpanded = true;
+                            }
+                        }">
+                            <div class="mb-1 flex items-center justify-between">
+                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ __('Description') }}</label>
+                                <button type="button" @click="openMax()" class="text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300">
+                                    <flux:icon name="arrows-pointing-out" class="size-4" />
+                                </button>
+                            </div>
+                            <div x-data="{}"
+                                x-init="
+                                    const ta = $root.querySelector('textarea');
+                                    if (ta) {
+                                        const resize = () => { ta.style.overflow = 'hidden'; ta.style.resize = 'none'; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+                                        ta.addEventListener('input', resize);
+                                        $nextTick(resize);
+                                    }
+                                "
+                            >
+                                <flux:textarea wire:model="editTaskDescription" rows="3" />
+                            </div>
+
+                            {{-- Full-screen description overlay --}}
+                            <div
+                                x-show="descExpanded"
+                                x-cloak
+                                class="fixed inset-0 z-50 flex flex-col gap-4 bg-white p-6 dark:bg-zinc-900"
+                                @keydown.escape.window="descExpanded = false"
+                            >
+                                <span class="text-base font-semibold text-zinc-800 dark:text-zinc-200">{{ __('Description') }}</span>
+                                <textarea
+                                    x-model="draft"
+                                    @keydown.ctrl.enter.prevent.stop="$wire.editTaskDescription = draft; $wire.saveTask(); descExpanded = false"
+                                    @keydown.meta.enter.prevent.stop="$wire.editTaskDescription = draft; $wire.saveTask(); descExpanded = false"
+                                    class="flex-1 w-full resize-none rounded-xl border border-zinc-200 bg-white p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                    placeholder="{{ __('Enter description...') }}"
+                                ></textarea>
+                                <div class="flex justify-end gap-2">
+                                    <flux:button type="button" @click="descExpanded = false">{{ __('Cancel') }}</flux:button>
+                                    <flux:tooltip content="Ctrl+Enter">
+                                        <flux:button variant="primary" type="button"
+                                            @click="$wire.editTaskDescription = draft; $wire.saveTask(); descExpanded = false"
+                                        >{{ __('Save') }}</flux:button>
+                                    </flux:tooltip>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="mt-3 flex flex-wrap items-center gap-2">
-                            <flux:badge color="{{ $this->selectedTask->status->color() }}">
-                                {{ $this->selectedTask->status->label() }}
-                            </flux:badge>
-                            <flux:badge color="zinc">Priority: {{ $this->selectedTask->priority }}</flux:badge>
-                            @if ($this->selectedTask->assignee)
-                                <flux:badge color="sky" icon="user">{{ $this->selectedTask->assignee->name }}</flux:badge>
-                            @endif
-                            @php $resolvedTdd = $this->selectedTask->resolvedTdd(); @endphp
-                            @if ($resolvedTdd !== null)
-                                <flux:badge color="{{ $resolvedTdd ? 'green' : 'zinc' }}" size="sm">
-                                    TDD: {{ $resolvedTdd ? 'On' : 'Off' }}
-                                    @if ($this->selectedTask->tdd === null)<span class="opacity-60"> ↑</span>@endif
-                                </flux:badge>
-                            @endif
-                            @php $resolvedEnv = $this->selectedTask->resolvedEnvironment(); @endphp
-                            @if ($resolvedEnv)
-                                <flux:badge color="sky" size="sm">
-                                    {{ $resolvedEnv }}
-                                    @if ($this->selectedTask->environment === null)<span class="opacity-60"> ↑</span>@endif
-                                </flux:badge>
-                            @endif
+                        {{-- Status · Priority · TDD · Environment --}}
+                        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                            <flux:select wire:model="editTaskStatus" :label="__('Status')">
+                                @foreach (TaskStatus::cases() as $status)
+                                    <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <flux:select wire:model="editTaskPriority" :label="__('Priority')">
+                                @for ($i = 0; $i <= 10; $i++)
+                                    <flux:select.option value="{{ $i }}">{{ $i }}</flux:select.option>
+                                @endfor
+                            </flux:select>
+                            <flux:select wire:model="editTaskTdd" :label="__('TDD')">
+                                <flux:select.option value="">
+                                    {{ __('Inherit') }}@php $pTdd = $this->selectedTask->feature?->resolvedTdd(); @endphp@if($pTdd !== null) ({{ $pTdd ? 'En' : 'Dis' }})@endif
+                                </flux:select.option>
+                                <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
+                                <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
+                            </flux:select>
+                            @php $pEnv = $this->selectedTask->feature?->resolvedEnvironment(); @endphp
+                            <flux:select wire:model="editTaskEnvironment" :label="__('Environment')">
+                                <flux:select.option value="">{{ __('Inherit') }}@if($pEnv) ({{ Str::limit($pEnv, 4, '') }})@endif</flux:select.option>
+                                <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
+                                <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
+                                <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
+                                <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                            </flux:select>
                         </div>
 
-                        @if ($this->selectedTask->description)
-                            <flux:text class="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
-                                {{ $this->selectedTask->description }}
-                            </flux:text>
-                        @endif
-
-                        @php $resolvedAi = $this->selectedTask->resolvedAiMode(); @endphp
-                        @if ($resolvedAi)
-                            <div class="mt-3 rounded-lg bg-purple-50 px-3 py-2 dark:bg-purple-950/30">
-                                <flux:text class="text-xs font-medium text-purple-700 dark:text-purple-400">
-                                    {{ __('AI mode') }}@if($this->selectedTask->ai_mode === null) <span class="font-normal opacity-70">(inherited)</span>@endif
-                                </flux:text>
-                                <flux:text class="mt-0.5 text-xs text-purple-600 dark:text-purple-300">{{ $resolvedAi }}</flux:text>
+                        {{-- AI mode — collapsed by default --}}
+                        @php $pAi = $this->selectedTask->feature?->resolvedAiMode(); @endphp
+                        <div x-data="{ aiOpen: {{ $editTaskAiMode ? 'true' : 'false' }} }">
+                            <button type="button" @click="aiOpen = !aiOpen"
+                                class="flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                            >
+                                <flux:icon x-show="!aiOpen" name="chevron-right" class="size-3.5" />
+                                <flux:icon x-show="aiOpen" name="chevron-down" class="size-3.5" />
+                                {{ __('AI mode') }}
+                                @if (! $editTaskAiMode && $pAi)
+                                    <span class="text-xs font-normal text-zinc-400">(inherited)</span>
+                                @endif
+                            </button>
+                            <div x-show="aiOpen" class="mt-2">
+                                <flux:textarea wire:model="editTaskAiMode" rows="2" :placeholder="$pAi ? __('Inherits: ').$pAi : __('Describe how AI should behave...')" />
                             </div>
-                        @endif
-                    @else
-                        <form wire:submit="saveTask" class="space-y-4"
-                            @keydown.ctrl.enter.prevent="$wire.saveTask()"
-                            @keydown.meta.enter.prevent="$wire.saveTask()"
-                        >
-                            <flux:input wire:model="editTaskTitle" :label="__('Title')" autofocus required />
-                            <flux:textarea wire:model="editTaskDescription" :label="__('Description')" rows="3" />
+                        </div>
 
-                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <flux:select wire:model="editTaskStatus" :label="__('Status')">
-                                    @foreach (TaskStatus::cases() as $status)
-                                        <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
-                                <flux:input
-                                    wire:model="editTaskPriority"
-                                    :label="__('Priority (0–10)')"
-                                    type="number"
-                                    min="0"
-                                    max="10"
-                                />
-                            </div>
-
-                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <flux:select wire:model="editTaskTdd" :label="__('TDD')">
-                                    <flux:select.option value="">
-                                        {{ __('Inherit') }}@php $pTdd = $this->selectedTask->feature?->resolvedTdd(); @endphp@if($pTdd !== null) ({{ $pTdd ? 'Enabled' : 'Disabled' }})@endif
-                                    </flux:select.option>
-                                    <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
-                                    <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
-                                </flux:select>
-                                @php $pEnv = $this->selectedTask->feature?->resolvedEnvironment(); @endphp
-                                <flux:select wire:model="editTaskEnvironment" :label="__('Environment')">
-                                    <flux:select.option value="">{{ __('Inherit') }}@if($pEnv) ({{ $pEnv }})@endif</flux:select.option>
-                                    <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
-                                    <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
-                                    <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
-                                    <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
-                                </flux:select>
-                            </div>
-
-                            @php $pAi = $this->selectedTask->feature?->resolvedAiMode(); @endphp
-                            <flux:textarea wire:model="editTaskAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$pAi ? __('Inherits: ').$pAi : __('Describe how AI should behave...')" />
-
-                            <div class="flex justify-end gap-2">
-                                <flux:button variant="ghost" wire:click="cancelEditingTask" type="button">
-                                    {{ __('Cancel') }}
-                                </flux:button>
-                                <flux:tooltip content="Ctrl+Enter">
-                                    <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
-                                </flux:tooltip>
-                            </div>
-                        </form>
-                    @endif
+                        {{-- Actions --}}
+                        <div class="flex justify-end gap-2">
+                            <flux:button variant="ghost" type="button" wire:click="closeTask">
+                                {{ __('Cancel') }}
+                            </flux:button>
+                            <flux:tooltip content="Ctrl+Enter">
+                                <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                            </flux:tooltip>
+                        </div>
+                    </form>
                 </div>
 
                 {{-- Thread --}}

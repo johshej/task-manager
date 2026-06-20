@@ -425,6 +425,8 @@
   function init() {
     const view = getView();
     if (view === 'epics-index') selectFirst('[data-list="epics"]');
+    const highlighted = document.querySelector('[data-selectable][data-highlighted]');
+    if (highlighted) setTimeout(() => setActive(highlighted), 0);
   }
 
   document.addEventListener('livewire:updated', function () {
