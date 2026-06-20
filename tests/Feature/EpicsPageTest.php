@@ -69,10 +69,10 @@ test('epic creation requires a name', function () {
 test('can edit an epic', function () {
     $epic = Epic::factory()->create(['name' => 'Old Name', 'status' => EpicStatus::Active]);
 
-    Livewire::test('pages::epics.index')
-        ->call('editEpic', $epic->id)
-        ->set('editName', 'New Name')
-        ->set('editStatus', EpicStatus::Paused->value)
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditEpic')
+        ->set('editEpicName', 'New Name')
+        ->set('editEpicStatus', EpicStatus::Paused->value)
         ->call('updateEpic')
         ->assertHasNoErrors();
 
@@ -83,11 +83,11 @@ test('can edit an epic', function () {
     ]);
 });
 
-test('epic index renders edit button with quoted uuid', function () {
+test('epic index renders edit button linking to edit route', function () {
     $epic = Epic::factory()->create(['name' => 'Test Epic']);
 
     Livewire::test('pages::epics.index')
-        ->assertSeeHtml("editEpic('{$epic->id}')");
+        ->assertSeeHtml(route('epics.board.edit', $epic));
 });
 
 test('epic index renders delete button with quoted uuid', function () {
@@ -115,15 +115,15 @@ test('epic board shows features and tasks', function () {
         ->assertSee('Task One');
 });
 
-test('board renders feature buttons with quoted uuids', function () {
+test('board renders feature and task navigation links', function () {
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();
     $task = Task::factory()->for($feature)->create();
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
-        ->assertSeeHtml("openEditFeature('{$feature->id}')")
+        ->assertSeeHtml(route('epics.board.feature', [$epic, $feature]))
         ->assertSeeHtml("openAddTask('{$feature->id}')")
-        ->assertSeeHtml("openTask('{$task->id}')");
+        ->assertSeeHtml(route('epics.board.task', [$epic, $task]));
 });
 
 test('can create a feature on the board', function () {
@@ -180,7 +180,6 @@ test('can update a task from the board', function () {
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openTask', $task->id)
-        ->call('startEditingTask')
         ->set('editTaskTitle', 'Updated Title')
         ->set('editTaskStatus', TaskStatus::Doing->value)
         ->set('editTaskPriority', 7)
@@ -232,11 +231,11 @@ test('invalid repository URL is rejected on create', function () {
 test('invalid repository URL is rejected on edit', function () {
     $epic = Epic::factory()->create();
 
-    Livewire::test('pages::epics.index')
-        ->call('editEpic', $epic->id)
-        ->set('editRepositoryUrl', 'not-a-valid-url')
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditEpic')
+        ->set('editEpicRepositoryUrl', 'not-a-valid-url')
         ->call('updateEpic')
-        ->assertHasErrors(['editRepositoryUrl']);
+        ->assertHasErrors(['editEpicRepositoryUrl']);
 });
 
 test('repository URL is displayed on the epics list', function () {
@@ -292,7 +291,6 @@ test('full UI flow: epic with SSH URL, feature, task, status change, and user hi
     // Edit the task status
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openTask', $task->id)
-        ->call('startEditingTask')
         ->set('editTaskStatus', TaskStatus::Doing->value)
         ->call('saveTask')
         ->assertHasNoErrors();
@@ -333,11 +331,11 @@ test('new fields save on epic create', function () {
 test('new fields save on epic edit', function () {
     $epic = Epic::factory()->create(['name' => 'Plain Epic']);
 
-    Livewire::test('pages::epics.index')
-        ->call('editEpic', $epic->id)
-        ->set('editTdd', '0')
-        ->set('editAiMode', 'Ask before each step')
-        ->set('editEnvironment', 'Production')
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditEpic')
+        ->set('editEpicTdd', '0')
+        ->set('editEpicAiMode', 'Ask before each step')
+        ->set('editEpicEnvironment', 'Production')
         ->call('updateEpic')
         ->assertHasNoErrors();
 
@@ -418,7 +416,6 @@ test('new fields save on task edit', function () {
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openTask', $task->id)
-        ->call('startEditingTask')
         ->set('editTaskTdd', '1')
         ->set('editTaskAiMode', 'Autonomous')
         ->set('editTaskEnvironment', 'Staging')
@@ -631,9 +628,6 @@ test('sortBoard does not affect tasks in other features', function () {
 test('filter status preference is saved when filter changes', function () {
     $epic = Epic::factory()->create();
 
-    Livewire::test('pages::epics.show', ['epic' => $this->user])
-        ->actingAs($this->user);
-
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->set('filterStatuses', [TaskStatus::Done->value]);
 
@@ -681,4 +675,114 @@ test('board shows AI badge for AI-changed tasks', function () {
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->assertSee('AI Touched Task')
         ->assertSee('AI');
+});
+
+// ── Task modal: always-edit, save/cancel/delete navigation ────────────────────
+
+test('openTask immediately enters edit mode', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create(['title' => 'My Task']);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->assertSet('editingTask', true)
+        ->assertSet('editTaskTitle', 'My Task');
+});
+
+test('saveTask redirects back to board with task highlighted', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->call('saveTask')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('epics.board', $epic));
+});
+
+test('closeTask redirects back to board with task highlighted', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->call('closeTask')
+        ->assertRedirect(route('epics.board', $epic));
+});
+
+test('deleteTask selects next sibling task after deletion', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['order_index' => 1]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $taskA->id)
+        ->call('confirmDeleteTask', $taskA->id)
+        ->call('deleteTask');
+
+    expect(session('highlighted_id'))->toBe($taskB->id);
+});
+
+test('deleteTask selects prev sibling when no next exists', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['order_index' => 1]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $taskB->id)
+        ->call('confirmDeleteTask', $taskB->id)
+        ->call('deleteTask');
+
+    expect(session('highlighted_id'))->toBe($taskA->id);
+});
+
+test('deleteTask selects feature when no sibling tasks remain', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create(['order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->call('confirmDeleteTask', $task->id)
+        ->call('deleteTask');
+
+    expect(session('highlighted_id'))->toBe($feature->id);
+});
+
+// ── Feature collapse persistence ──────────────────────────────────────────────
+
+test('saveFeatureCollapse stores collapsed state in user preferences', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('saveFeatureCollapse', $feature->id, true);
+
+    expect($this->user->fresh()->preferences['collapsed_feature_ids'][$epic->id])
+        ->toContain($feature->id);
+});
+
+test('saveFeatureCollapse removes feature id when expanded', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $this->user->update(['preferences' => ['collapsed_feature_ids' => [$epic->id => [$feature->id]]]]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('saveFeatureCollapse', $feature->id, false);
+
+    expect($this->user->fresh()->preferences['collapsed_feature_ids'][$epic->id])
+        ->not->toContain($feature->id);
+});
+
+test('board feature cards have wire sort item attribute for drag and drop', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->assertSeeHtml('wire:sort:item="' . $feature->id . '"');
 });
