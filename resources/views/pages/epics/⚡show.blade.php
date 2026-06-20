@@ -914,7 +914,6 @@ new #[Title('Epic Board')] class extends Component {
                         <div
                             x-show="collapsed"
                             x-cloak
-                            data-selectable
                             @click="collapsed = false"
                             class="flex cursor-pointer items-center gap-1.5 px-5 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                         >
@@ -973,10 +972,10 @@ new #[Title('Epic Board')] class extends Component {
                             @endforeach
                         </ul>
                     @else
-                        <div class="px-5 py-6 text-center">
+                        <div data-selectable class="px-5 py-6 text-center transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                             <flux:text class="text-sm text-zinc-400">{{ __('No tasks yet.') }}</flux:text>
                             <div class="mt-2">
-                                <flux:button variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')">
+                                <flux:button data-open-btn variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')">
                                     {{ __('Add task') }}
                                 </flux:button>
                             </div>
