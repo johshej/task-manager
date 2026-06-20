@@ -12,6 +12,7 @@
 
   let seq = '';
   let seqTimer = null;
+  let _boardCollapseAll = false;
   const resetSeq = () => { seq = ''; if (seqTimer) { clearTimeout(seqTimer); seqTimer = null; } };
 
   const routes = window.AppRoutes || {};
@@ -46,6 +47,8 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Move item (board/queue)</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">←</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">→</kbd> &nbsp; Switch column (kanban)</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected task</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">t</kbd> &nbsp; Toggle feature collapse</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">t</kbd> &nbsp; Toggle all features</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit epic</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">1</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">2</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">3</kbd> &nbsp; Board / Kanban / Queue</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">f</kbd> &nbsp; Toggle filters</div>
@@ -82,11 +85,20 @@
     if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); }
   }
 
+  function isDomVisible(el) {
+    let node = el;
+    while (node) {
+      if (node.style && node.style.display === 'none') return false;
+      node = node.parentElement;
+    }
+    return true;
+  }
+
   function moveSelection(delta) {
-    const items = Array.from(document.querySelectorAll('[data-selectable]'));
+    const items = Array.from(document.querySelectorAll('[data-selectable]')).filter(isDomVisible);
     if (!items.length) return;
     let index = items.findIndex((n) => n.classList.contains('active'));
-    if (index < 0) { setActive(items[delta < 0 ? 0 : 0]); return; }
+    if (index < 0) { setActive(items[0]); return; }
     const next = Math.max(0, Math.min(items.length - 1, index + delta));
     setActive(items[next]);
   }
@@ -213,6 +225,31 @@
     }
   }
 
+  function toggleActiveFeatureCollapse() {
+    const active = currentActive();
+    if (!active) return;
+    let featureId = active.getAttribute('data-feature-id');
+    const isOnTask = !featureId;
+    if (!featureId) {
+      const card = active.closest('[data-board-feature-card]');
+      const header = card && card.querySelector('[data-feature-id]');
+      if (header) featureId = header.getAttribute('data-feature-id');
+    }
+    if (!featureId) return;
+    window.dispatchEvent(new CustomEvent('board-toggle-collapse', { detail: { featureId } }));
+    if (isOnTask) {
+      // after collapsing, move selection to the feature header so it stays visible
+      setTimeout(function () {
+        const header = document.querySelector('[data-feature-id="' + featureId + '"]');
+        if (header && isDomVisible(header)) setActive(header);
+      }, 0);
+    }
+  }
+
+  window.addEventListener('board-collapse-all', function (e) {
+    _boardCollapseAll = e.detail.collapsed;
+  });
+
   document.addEventListener('board-sorted', function (e) {
     const { id, type } = e.detail;
     setTimeout(function () {
@@ -316,6 +353,12 @@
       }
 
       if (e.key === 'Enter') { e.preventDefault(); handled = true; openActiveTask(); }
+      if (e.key === 't' && mode === 'board' && !e.shiftKey) { e.preventDefault(); handled = true; toggleActiveFeatureCollapse(); }
+      if (e.key === 'T' && mode === 'board') {
+        e.preventDefault(); handled = true;
+        _boardCollapseAll = !_boardCollapseAll;
+        window.dispatchEvent(new CustomEvent('board-collapse-all', { detail: { collapsed: _boardCollapseAll } }));
+      }
       if (e.key === 'e') { e.preventDefault(); handled = true; shortcut('edit-epic'); }
       if (e.key === '1') { e.preventDefault(); handled = true; shortcut('view-board'); }
       if (e.key === '2') { e.preventDefault(); handled = true; shortcut('view-kanban'); }

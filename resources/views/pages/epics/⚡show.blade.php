@@ -14,6 +14,7 @@ use App\Models\TaskHistory;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -25,6 +26,7 @@ new #[Title('Epic Board')] class extends Component {
     public bool $showFilters = false;
     public array $filterFeatureIds = [];
     public array $filterStatuses = [];
+    public array $collapsedFeatureIds = [];
 
     // Feature creation
     public string $newFeatureName = '';
@@ -105,6 +107,7 @@ new #[Title('Epic Board')] class extends Component {
 
         $prefs = auth()->user()?->preferences ?? [];
         $this->filterStatuses = $prefs['filter_statuses'] ?? [];
+        $this->collapsedFeatureIds = $prefs['collapsed_feature_ids'][$this->epic->id] ?? [];
     }
 
     public function updatedFilterStatuses(): void
@@ -119,6 +122,25 @@ new #[Title('Epic Board')] class extends Component {
                 'filter_statuses' => $this->filterStatuses,
             ]),
         ]);
+    }
+
+    #[Renderless]
+    public function saveFeatureCollapse(string $featureId, bool $collapsed): void
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return;
+        }
+
+        if ($collapsed) {
+            $this->collapsedFeatureIds = array_values(array_unique([...$this->collapsedFeatureIds, $featureId]));
+        } else {
+            $this->collapsedFeatureIds = array_values(array_filter($this->collapsedFeatureIds, fn ($id) => $id !== $featureId));
+        }
+
+        $prefs = $user->preferences ?? [];
+        $prefs['collapsed_feature_ids'][$this->epic->id] = $this->collapsedFeatureIds;
+        $user->update(['preferences' => $prefs]);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -749,20 +771,33 @@ new #[Title('Epic Board')] class extends Component {
                 >{{ __('AI Queue') }}</flux:button>
             </flux:tooltip>
         </div>
-        <flux:tooltip content="F">
-            <flux:button
-                variant="{{ $showFilters ? 'filled' : 'ghost' }}"
-                size="sm"
-                icon="funnel"
-                data-shortcut="toggle-filters"
-                wire:click="$toggle('showFilters')"
-            >
+        <div class="flex items-center gap-1">
+            @if ($viewMode === 'board')
+                <div x-data="{ boardAllCollapsed: false }">
+                    <flux:tooltip content="Shift+T">
+                        <flux:button
+                            variant="ghost"
+                            size="sm"
+                            x-on:click="boardAllCollapsed = !boardAllCollapsed; window.dispatchEvent(new CustomEvent('board-collapse-all', { detail: { collapsed: boardAllCollapsed } }))"
+                        ><span x-text="boardAllCollapsed ? 'Expand all' : 'Collapse all'">Collapse all</span></flux:button>
+                    </flux:tooltip>
+                </div>
+            @endif
+            <flux:tooltip content="F">
+                <flux:button
+                    variant="{{ $showFilters ? 'filled' : 'ghost' }}"
+                    size="sm"
+                    icon="funnel"
+                    data-shortcut="toggle-filters"
+                    wire:click="$toggle('showFilters')"
+                >
                 {{ __('Filter') }}
                 @if (count($filterStatuses) > 0)
                     <flux:badge color="blue" size="sm" class="ml-1">{{ count($filterStatuses) }}</flux:badge>
                 @endif
             </flux:button>
         </flux:tooltip>
+        </div>
     </div>
 
     {{-- Filter panel --}}
@@ -797,11 +832,19 @@ new #[Title('Epic Board')] class extends Component {
             @forelse ($this->features as $feature)
                 <div
                     wire:key="board-feature-{{ $feature->id }}"
+                    data-board-feature-card
+                    x-data="{ collapsed: {{ in_array($feature->id, $collapsedFeatureIds) ? 'true' : 'false' }} }"
+                    x-on:board-collapse-all.window="collapsed = $event.detail.collapsed"
+                    x-on:board-toggle-collapse.window="if ($event.detail.featureId === '{{ $feature->id }}') collapsed = !collapsed"
+                    x-init="
+                        $watch('collapsed', value => $wire.saveFeatureCollapse('{{ $feature->id }}', value));
+                        if ($el.hasAttribute('data-highlight-scroll')) $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+                    "
+                    @if ($highlightedId === $feature->id) data-highlight-scroll @endif
                     @class([
                         'rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900',
                         'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $feature->id,
                     ])
-                    @if ($highlightedId === $feature->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
                 >
                     {{-- Feature header --}}
                     <div data-selectable data-feature-id="{{ $feature->id }}" class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
@@ -819,6 +862,18 @@ new #[Title('Epic Board')] class extends Component {
                                 @endif
                             </div>
                             <div class="flex items-center gap-1">
+                                @if ($feature->tasks->isNotEmpty())
+                                    <flux:tooltip content="T">
+                                        <flux:button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon="chevron-down"
+                                            @click.stop="collapsed = !collapsed"
+                                            class="transition-transform duration-200"
+                                            x-bind:class="{ '-rotate-90': collapsed }"
+                                        />
+                                    </flux:tooltip>
+                                @endif
                                 <flux:tooltip :content="__('Add task')">
                                     <flux:button variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')" />
                                 </flux:tooltip>
@@ -832,7 +887,28 @@ new #[Title('Epic Board')] class extends Component {
 
                     {{-- Tasks --}}
                     @if ($feature->tasks->isNotEmpty())
-                        <ul wire:sort="sortBoard" class="divide-y divide-zinc-100 list-none dark:divide-zinc-800">
+                        {{-- Collapsed summary row --}}
+                        @php $statusCounts = $feature->tasks->groupBy(fn ($t) => $t->status->value)->map->count(); @endphp
+                        <div
+                            x-show="collapsed"
+                            x-cloak
+                            data-selectable
+                            @click="collapsed = false"
+                            class="flex cursor-pointer items-center gap-1.5 px-5 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                        >
+                            <div class="flex flex-1 flex-wrap items-center gap-1.5">
+                                @foreach (TaskStatus::cases() as $status)
+                                    @if ($statusCounts->has($status->value))
+                                        <flux:badge color="{{ $status->color() }}" size="sm">{{ $status->label() }} · {{ $statusCounts[$status->value] }}</flux:badge>
+                                    @endif
+                                @endforeach
+                            </div>
+                            <flux:tooltip content="T">
+                                <flux:button variant="ghost" size="sm" icon="chevron-up" @click.stop="collapsed = false" class="shrink-0" />
+                            </flux:tooltip>
+                        </div>
+
+                        <ul x-show="!collapsed" wire:sort="sortBoard" class="divide-y divide-zinc-100 list-none dark:divide-zinc-800">
                             @foreach ($feature->tasks as $task)
                                 <li
                                     wire:key="board-{{ $task->id }}"
