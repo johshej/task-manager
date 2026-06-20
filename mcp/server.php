@@ -166,7 +166,7 @@ function tm_tools(): array
             'inputSchema' => ['type' => 'object', 'required' => ['task_id'],
                 'properties' => ['task_id' => $idProp, 'cwd' => $cwdProp]]],
 
-        ['name' => 'task_status', 'description' => 'Set task status (todo|doing|blocked|building_automated_tests|running_automated_tests|done).',
+        ['name' => 'task_status', 'description' => 'Set task status (todo|doing|blocked|building_automated_tests|running_automated_tests|done|merged_to_staging|deployed_to_staging|merged_to_master|deployed_to_master).',
             'inputSchema' => ['type' => 'object', 'required' => ['status'],
                 'properties' => ['task_id' => $idProp, 'status' => ['type' => 'string'], 'cwd' => $cwdProp]]],
 
@@ -192,7 +192,7 @@ function tm_tools(): array
             'inputSchema' => ['type' => 'object', 'required' => ['feature_id'],
                 'properties' => ['feature_id' => $idProp, 'cwd' => $cwdProp]]],
 
-        ['name' => 'feature_status', 'description' => 'Set feature status (planned|active|done|archived).',
+        ['name' => 'feature_status', 'description' => 'Set feature status (todo|active|done|archived|merged_to_staging|deployed_to_staging|merged_to_master|deployed_to_master).',
             'inputSchema' => ['type' => 'object', 'required' => ['status'],
                 'properties' => ['feature_id' => $idProp, 'status' => ['type' => 'string'], 'cwd' => $cwdProp]]],
 
