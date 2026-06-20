@@ -42,7 +42,8 @@
           </div>
           <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Epic board</div>
-            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select task</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select item</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Move item in queue</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">←</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">→</kbd> &nbsp; Switch column (kanban)</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected task</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit epic</div>
@@ -165,6 +166,24 @@
     if (btn) btn.click();
   }
 
+  // ── Queue reorder ─────────────────────────────────────────────────────────
+
+  let pendingQueueActiveId = null;
+
+  function moveQueueItem(delta) {
+    const active = currentActive();
+    if (!active) return;
+    const itemId = active.getAttribute('wire:sort:item');
+    if (!itemId) return;
+    const items = Array.from(document.querySelectorAll('[data-selectable]'));
+    const currentIndex = items.indexOf(active);
+    if (currentIndex < 0) return;
+    const newIndex = Math.max(0, Math.min(items.length - 1, currentIndex + delta));
+    if (newIndex === currentIndex) return;
+    pendingQueueActiveId = itemId;
+    window.dispatchEvent(new CustomEvent('queue-reorder', { detail: { itemId, position: newIndex } }));
+  }
+
   // ── Filter panel ──────────────────────────────────────────────────────────
 
   let savedActiveBeforeFilter = null;
@@ -239,8 +258,14 @@
         if (e.key === 'ArrowLeft')  { e.preventDefault(); handled = true; moveKanbanColumn(-1); }
         if (e.key === 'ArrowRight') { e.preventDefault(); handled = true; moveKanbanColumn(1); }
       } else {
-        if (e.key === 'ArrowUp')   { e.preventDefault(); handled = true; moveSelection(-1); }
-        if (e.key === 'ArrowDown') { e.preventDefault(); handled = true; moveSelection(1); }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault(); handled = true;
+          if (e.shiftKey && mode === 'queue') moveQueueItem(-1); else moveSelection(-1);
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault(); handled = true;
+          if (e.shiftKey && mode === 'queue') moveQueueItem(1); else moveSelection(1);
+        }
       }
 
       if (e.key === 'Enter') { e.preventDefault(); handled = true; openActiveTask(); }
@@ -311,6 +336,17 @@
     const view = getView();
     if (view === 'epics-index') selectFirst('[data-list="epics"]');
   }
+
+  document.addEventListener('livewire:updated', function () {
+    if (!pendingQueueActiveId) return;
+    const id = pendingQueueActiveId;
+    pendingQueueActiveId = null;
+    setTimeout(function () {
+      const el = Array.from(document.querySelectorAll('[data-selectable]'))
+        .find(function (n) { return n.getAttribute('wire:sort:item') === id; });
+      if (el) setActive(el);
+    }, 0);
+  });
 
   if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', init);

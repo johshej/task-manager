@@ -937,7 +937,9 @@ new #[Title('Epic Board')] class extends Component {
             </div>
 
             @if ($this->sortedQueue->isNotEmpty())
-                <ul wire:sort="sortQueue" class="list-none space-y-2">
+                <ul wire:sort="sortQueue"
+                    x-on:queue-reorder.window="$wire.sortQueue($event.detail.itemId, $event.detail.position)"
+                    class="list-none space-y-2">
                     @foreach ($this->sortedQueue as $index => $item)
                         @php $isTask = $item instanceof \App\Models\Task; @endphp
                         <li
