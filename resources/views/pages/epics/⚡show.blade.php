@@ -840,11 +840,13 @@ new #[Title('Epic Board')] class extends Component {
     {{-- ── Board view ──────────────────────────────────────────────────────── --}}
     @if ($viewMode === 'board')
         <div class="space-y-6" data-board-mode="board"
+             wire:sort="sortBoardFeature"
              x-on:board-task-reorder.window="$wire.sortBoard($event.detail.taskId, $event.detail.position)"
              x-on:board-feature-reorder.window="$wire.sortBoardFeature($event.detail.featureId, $event.detail.position)">
             @forelse ($this->features as $feature)
                 <div
                     wire:key="board-feature-{{ $feature->id }}"
+                    wire:sort:item="{{ $feature->id }}"
                     data-board-feature-card
                     x-data="{ collapsed: {{ in_array($feature->id, $collapsedFeatureIds) ? 'true' : 'false' }} }"
                     x-on:board-collapse-all.window="collapsed = $event.detail.collapsed"
@@ -863,6 +865,13 @@ new #[Title('Epic Board')] class extends Component {
                     <div data-selectable data-feature-id="{{ $feature->id }}" @if ($highlightedId === $feature->id) data-highlighted @endif class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
                         <div class="flex items-center justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-1.5">
+                                <div wire:sort:handle class="shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
+                                    <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
+                                        <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
+                                        <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                                        <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+                                    </svg>
+                                </div>
                                 <flux:badge color="{{ $feature->status->color() }}" size="sm">{{ $feature->status->label() }}</flux:badge>
                                 <flux:text class="text-xs text-zinc-400">
                                     {{ $feature->tasks->count() }} {{ Str::plural('task', $feature->tasks->count()) }}
