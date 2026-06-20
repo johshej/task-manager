@@ -582,6 +582,86 @@ test('filter by status hides non-matching tasks', function () {
         ->assertDontSee('Done Task');
 });
 
+// ── Board sorting ─────────────────────────────────────────────────────────────
+
+test('sortBoard reorders tasks within a feature', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['order_index' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('sortBoard', $taskC->id, 0);
+
+    expect($taskC->fresh()->order_index)->toBe(0);
+    expect($taskA->fresh()->order_index)->toBe(1);
+    expect($taskB->fresh()->order_index)->toBe(2);
+});
+
+test('sortBoardFeature reorders features', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['order_index' => 0]);
+    $featureB = Feature::factory()->for($epic)->create(['order_index' => 1]);
+    $featureC = Feature::factory()->for($epic)->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('sortBoardFeature', $featureC->id, 0);
+
+    expect($featureC->fresh()->order_index)->toBe(0);
+    expect($featureA->fresh()->order_index)->toBe(1);
+    expect($featureB->fresh()->order_index)->toBe(2);
+});
+
+test('sortBoard does not affect tasks in other features', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create();
+    $featureB = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($featureA)->create(['order_index' => 0]);
+    $taskB = Task::factory()->for($featureB)->create(['order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('sortBoard', $taskA->id, 0);
+
+    expect($taskB->fresh()->order_index)->toBe(0);
+});
+
+// ── Filter preferences ────────────────────────────────────────────────────────
+
+test('filter status preference is saved when filter changes', function () {
+    $epic = Epic::factory()->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $this->user])
+        ->actingAs($this->user);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('filterStatuses', [TaskStatus::Done->value]);
+
+    expect($this->user->fresh()->preferences['filter_statuses'])->toBe([TaskStatus::Done->value]);
+});
+
+test('filter preferences are loaded from user on mount', function () {
+    $this->user->update(['preferences' => ['filter_statuses' => [TaskStatus::Done->value]]]);
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['title' => 'Todo Task', 'status' => TaskStatus::Todo]);
+    Task::factory()->for($feature)->create(['title' => 'Done Task', 'status' => TaskStatus::Done]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->assertSee('Done Task')
+        ->assertDontSee('Todo Task');
+});
+
+test('clearing filter saves empty preference', function () {
+    $this->user->update(['preferences' => ['filter_statuses' => [TaskStatus::Done->value]]]);
+    $epic = Epic::factory()->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('filterStatuses', []);
+
+    expect($this->user->fresh()->preferences['filter_statuses'])->toBe([]);
+});
+
 test('board shows AI badge for AI-changed tasks', function () {
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();

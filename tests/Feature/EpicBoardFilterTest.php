@@ -104,3 +104,62 @@ test('clearing filter restores all features and tasks', function () {
         ->assertSee('Restored Feature')
         ->assertSee('Restored task');
 });
+
+// ── Task-less features in queue (sort view) ───────────────────────────────────
+
+test('task-less todo feature appears in queue with no filter', function () {
+    Feature::factory()->for($this->epic)->create([
+        'name' => 'Standalone Feature',
+        'status' => FeatureStatus::Todo,
+        'execution_order' => 0,
+    ]);
+
+    Livewire::test('pages::epics.⚡show', ['epic' => $this->epic])
+        ->set('viewMode', 'sort')
+        ->assertSee('Standalone Feature');
+});
+
+test('task-less todo feature appears in queue when filtering by todo', function () {
+    Feature::factory()->for($this->epic)->create([
+        'name' => 'Todo Feature',
+        'status' => FeatureStatus::Todo,
+        'execution_order' => 0,
+    ]);
+
+    Livewire::test('pages::epics.⚡show', ['epic' => $this->epic])
+        ->set('viewMode', 'sort')
+        ->set('filterStatuses', [TaskStatus::Todo->value])
+        ->assertSee('Todo Feature');
+});
+
+test('task-less feature is hidden from queue when status filter does not match', function () {
+    Feature::factory()->for($this->epic)->create([
+        'name' => 'Active Feature',
+        'status' => FeatureStatus::Active,
+        'execution_order' => 0,
+    ]);
+
+    Livewire::test('pages::epics.⚡show', ['epic' => $this->epic])
+        ->set('viewMode', 'sort')
+        ->set('filterStatuses', [TaskStatus::Todo->value])
+        ->assertDontSee('Active Feature');
+});
+
+test('task-less features are hidden from queue when any status filter is active and none match', function () {
+    Feature::factory()->for($this->epic)->create([
+        'name' => 'Done Feature',
+        'status' => FeatureStatus::Done,
+        'execution_order' => 0,
+    ]);
+    Feature::factory()->for($this->epic)->create([
+        'name' => 'Active Feature',
+        'status' => FeatureStatus::Active,
+        'execution_order' => 1,
+    ]);
+
+    Livewire::test('pages::epics.⚡show', ['epic' => $this->epic])
+        ->set('viewMode', 'sort')
+        ->set('filterStatuses', [TaskStatus::Todo->value])
+        ->assertDontSee('Done Feature')
+        ->assertDontSee('Active Feature');
+});

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EpicStatus;
+use App\Enums\FeatureStatus;
 use App\Models\Epic;
 use App\Models\Feature;
 use App\Models\Task;
@@ -179,4 +180,66 @@ test('queue tasks include feature_id', function () {
         ->getJson("/api/v1/epics/{$epic->id}/queue")
         ->assertSuccessful()
         ->assertJsonPath('data.0.feature_id', $feature->id);
+});
+
+test('queue items include a type field', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['execution_order' => 0]);
+
+    $this->withToken($this->token)
+        ->getJson("/api/v1/epics/{$epic->id}/queue")
+        ->assertSuccessful()
+        ->assertJsonPath('data.0.type', 'task');
+});
+
+test('queue includes task-less features with type feature', function () {
+    $epic = Epic::factory()->create();
+    Feature::factory()->for($epic)->create([
+        'name' => 'Standalone Feature',
+        'status' => FeatureStatus::Todo,
+        'execution_order' => 0,
+    ]);
+
+    $response = $this->withToken($this->token)
+        ->getJson("/api/v1/epics/{$epic->id}/queue")
+        ->assertSuccessful()
+        ->assertJsonCount(1, 'data');
+
+    expect($response->json('data.0.type'))->toBe('feature');
+    expect($response->json('data.0.name'))->toBe('Standalone Feature');
+});
+
+test('queue mixes tasks and task-less features sorted by execution_order', function () {
+    $epic = Epic::factory()->create();
+    $featureWithTask = Feature::factory()->for($epic)->create(['execution_order' => 99]);
+    $tasklessFeature = Feature::factory()->for($epic)->create([
+        'name' => 'First Item',
+        'status' => FeatureStatus::Todo,
+        'execution_order' => 0,
+    ]);
+    Task::factory()->for($featureWithTask)->create(['title' => 'Second Item', 'execution_order' => 1]);
+
+    $response = $this->withToken($this->token)
+        ->getJson("/api/v1/epics/{$epic->id}/queue")
+        ->assertSuccessful()
+        ->assertJsonCount(2, 'data');
+
+    expect($response->json('data.0.name'))->toBe('First Item');
+    expect($response->json('data.0.type'))->toBe('feature');
+    expect($response->json('data.1.title'))->toBe('Second Item');
+    expect($response->json('data.1.type'))->toBe('task');
+});
+
+test('queue feature items include execution_order', function () {
+    $epic = Epic::factory()->create();
+    Feature::factory()->for($epic)->create([
+        'status' => FeatureStatus::Todo,
+        'execution_order' => 3,
+    ]);
+
+    $this->withToken($this->token)
+        ->getJson("/api/v1/epics/{$epic->id}/queue")
+        ->assertSuccessful()
+        ->assertJsonPath('data.0.execution_order', 3);
 });
