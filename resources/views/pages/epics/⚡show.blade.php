@@ -102,6 +102,23 @@ new #[Title('Epic Board')] class extends Component {
         };
 
         $this->highlightedId = session('highlighted_id');
+
+        $prefs = auth()->user()?->preferences ?? [];
+        $this->filterStatuses = $prefs['filter_statuses'] ?? [];
+    }
+
+    public function updatedFilterStatuses(): void
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return;
+        }
+
+        $user->update([
+            'preferences' => array_merge($user->preferences ?? [], [
+                'filter_statuses' => $this->filterStatuses,
+            ]),
+        ]);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
