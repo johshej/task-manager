@@ -577,10 +577,12 @@ new #[Title('Epic Board')] class extends Component {
             ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
             ->get();
 
-        $features = Feature::where('epic_id', $this->epic->id)
-            ->doesntHave('tasks')
-            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
-            ->get();
+        $features = count($this->filterStatuses) === 0
+            ? Feature::where('epic_id', $this->epic->id)
+                ->doesntHave('tasks')
+                ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
+                ->get()
+            : collect();
 
         return $tasks->merge($features)
             ->sortBy(fn ($item) => [$item->execution_order ?? PHP_INT_MAX, $item->created_at->timestamp])
