@@ -786,3 +786,43 @@ test('board feature cards have wire sort item attribute for drag and drop', func
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->assertSeeHtml('wire:sort:item="' . $feature->id . '"');
 });
+
+// ── Board navigation: empty-state and collapsed summary selectability ──────────
+
+test('board renders empty-state section as selectable for features with no tasks', function () {
+    $epic = Epic::factory()->create();
+    Feature::factory()->for($epic)->create();
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])->html();
+
+    expect($html)->toContain('No tasks yet.')
+        ->and($html)->toContain('data-selectable');
+});
+
+test('board empty-state add task button has data-open-btn for keyboard activation', function () {
+    $epic = Epic::factory()->create();
+    Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->assertSeeHtml('data-open-btn');
+});
+
+test('board collapsed summary row does not have data-selectable', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create();
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])->html();
+
+    // The collapsed summary row (x-show="collapsed") must not be selectable
+    expect($html)->not->toContain('x-show="collapsed" ' . PHP_EOL . '                            x-cloak' . PHP_EOL . '                            data-selectable');
+});
+
+test('board empty-state section opens add task modal on call', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openAddTask', $feature->id)
+        ->assertSet('addingTaskForFeatureId', $feature->id);
+});
