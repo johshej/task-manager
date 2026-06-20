@@ -38,6 +38,7 @@ return new class extends Migration
             DB::statement('ALTER TABLE features_new RENAME TO features');
             DB::statement('PRAGMA foreign_keys = ON');
         } else {
+            DB::statement("ALTER TABLE features MODIFY COLUMN status ENUM('planned', 'todo', 'active', 'done', 'archived') NOT NULL DEFAULT 'todo'");
             DB::table('features')->where('status', 'planned')->update(['status' => 'todo']);
             DB::statement("ALTER TABLE features MODIFY COLUMN status ENUM('todo', 'active', 'done', 'archived') NOT NULL DEFAULT 'todo'");
         }
