@@ -168,7 +168,19 @@ new #[Title('Epics')] class extends Component {
                         </flux:text>
                     </div>
 
-                    {{-- Line 3: repo URL --}}
+                    {{-- Line 3: epic ID (copyable) --}}
+                    <div
+                        class="mt-1 flex cursor-pointer items-center gap-1 self-start"
+                        title="{{ __('Click to copy epic ID') }}"
+                        x-data="{ copied: false }"
+                        x-on:click.stop="navigator.clipboard.writeText('{{ $epic->id }}'); copied = true; setTimeout(() => copied = false, 1500)"
+                    >
+                        <flux:icon.key class="size-3 shrink-0 text-zinc-400" />
+                        <span class="font-mono text-xs text-zinc-400" x-show="!copied">{{ $epic->id }}</span>
+                        <span class="text-xs text-green-500" x-show="copied" x-cloak>{{ __('Copied!') }}</span>
+                    </div>
+
+                    {{-- Line 4: repo URL --}}
                     @if ($epic->repository_url)
                         <a
                             href="{{ $epic->repository_url }}"

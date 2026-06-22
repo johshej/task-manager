@@ -24,6 +24,7 @@ declare(strict_types=1);
  *   - feature_start    — mark active + set ACTIVE_FEATURE_ID
  *   - feature_status   — set feature status
  *   - feature_note     — add note to feature history
+ *   - epic_list        — list all epics with full IDs
  *   - epic_note        — add note to epic history
  *   - config_show      — show resolved .task-manager config (token masked)
  */
@@ -200,6 +201,9 @@ function tm_tools(): array
             'inputSchema' => ['type' => 'object', 'required' => ['body'],
                 'properties' => ['feature_id' => $idProp, 'body' => ['type' => 'string'], 'cwd' => $cwdProp]]],
 
+        ['name' => 'epic_list', 'description' => 'List all epics with their full IDs, names, and statuses.',
+            'inputSchema' => ['type' => 'object', 'properties' => ['cwd' => $cwdProp]]],
+
         ['name' => 'epic_note', 'description' => 'Add a note to the epic history.',
             'inputSchema' => ['type' => 'object', 'required' => ['body'],
                 'properties' => ['body' => ['type' => 'string'], 'cwd' => $cwdProp]]],
@@ -317,6 +321,9 @@ function tm_call_tool(string $name, array $args): array
             $id = tm_require($cfg, 'ACTIVE_FEATURE_ID', $args['feature_id'] ?? null, 'feature_id');
 
             return tm_http($cfg, 'POST', "/features/$id/history", ['action' => 'note', 'body' => $args['body']]);
+
+        case 'epic_list':
+            return tm_http($cfg, 'GET', '/epics');
 
         case 'epic_note':
             $epic = tm_require($cfg, 'EPIC_ID', null, 'EPIC_ID');
