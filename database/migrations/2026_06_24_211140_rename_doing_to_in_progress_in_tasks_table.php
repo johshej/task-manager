@@ -44,7 +44,15 @@ return new class extends Migration
             DB::statement('ALTER TABLE tasks_new RENAME TO tasks');
             DB::statement('PRAGMA foreign_keys = ON');
         } else {
+            // Expand ENUM to accept both old and new value before updating data
+            DB::statement("ALTER TABLE tasks MODIFY COLUMN status ENUM(
+                'todo', 'doing', 'in_progress', 'blocked',
+                'building_automated_tests', 'running_automated_tests', 'done',
+                'merged_to_staging', 'deployed_to_staging',
+                'merged_to_master', 'deployed_to_master'
+            ) NOT NULL DEFAULT 'todo'");
             DB::statement("UPDATE tasks SET status = 'in_progress' WHERE status = 'doing'");
+            // Remove old value now that no rows use it
             DB::statement("ALTER TABLE tasks MODIFY COLUMN status ENUM(
                 'todo', 'in_progress', 'blocked',
                 'building_automated_tests', 'running_automated_tests', 'done',
@@ -93,6 +101,12 @@ return new class extends Migration
             DB::statement('ALTER TABLE tasks_new RENAME TO tasks');
             DB::statement('PRAGMA foreign_keys = ON');
         } else {
+            DB::statement("ALTER TABLE tasks MODIFY COLUMN status ENUM(
+                'todo', 'in_progress', 'doing', 'blocked',
+                'building_automated_tests', 'running_automated_tests', 'done',
+                'merged_to_staging', 'deployed_to_staging',
+                'merged_to_master', 'deployed_to_master'
+            ) NOT NULL DEFAULT 'todo'");
             DB::statement("UPDATE tasks SET status = 'doing' WHERE status = 'in_progress'");
             DB::statement("ALTER TABLE tasks MODIFY COLUMN status ENUM(
                 'todo', 'doing', 'blocked',
