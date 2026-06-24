@@ -76,23 +76,6 @@ var epicsUpdateCmd = &cobra.Command{
 	},
 }
 
-var epicsQueueCmd = &cobra.Command{
-	Use:   "queue [epic-id]",
-	Short: "Show the AI execution queue for an epic, or the project epic",
-	Args:  cobra.RangeArgs(0, 1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		epicID, err := resolveEpicID(args)
-		if err != nil {
-			return err
-		}
-		tasks, err := apiClient.GetEpicQueue(epicID)
-		if err != nil {
-			return err
-		}
-		output.Queue(tasks, jsonFlag)
-		return nil
-	},
-}
 
 var epicsHistoryCmd = &cobra.Command{
 	Use:   "history [epic-id]",
@@ -197,6 +180,6 @@ func init() {
 
 	addNoteFlags(epicsNoteCmd)
 
-	epicsCmd.AddCommand(epicsListCmd, epicsGetCmd, epicsUpdateCmd, epicsQueueCmd, epicsHistoryCmd, epicsNoteCmd)
+	epicsCmd.AddCommand(epicsListCmd, epicsGetCmd, epicsUpdateCmd, epicsHistoryCmd, epicsNoteCmd)
 	rootCmd.AddCommand(epicsCmd)
 }

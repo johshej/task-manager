@@ -31,8 +31,8 @@ class TaskFactory extends Factory
         return $this->state(['status' => TaskStatus::Todo]);
     }
 
-    public function doing(): static
+    public function inProgress(): static
     {
-        return $this->state(['status' => TaskStatus::Doing]);
+        return $this->state(['status' => TaskStatus::InProgress]);
     }
 }

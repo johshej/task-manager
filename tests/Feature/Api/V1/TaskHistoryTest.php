@@ -137,11 +137,11 @@ test('history note can include old and new values', function () {
         ->postJson("/api/v1/tasks/{$task->id}/history", [
             'action' => 'note',
             'old_values' => ['status' => 'todo'],
-            'new_values' => ['status' => 'doing'],
+            'new_values' => ['status' => 'in_progress'],
         ])
         ->assertCreated()
         ->assertJsonPath('data.old_values.status', 'todo')
-        ->assertJsonPath('data.new_values.status', 'doing');
+        ->assertJsonPath('data.new_values.status', 'in_progress');
 });
 
 test('history post requires action field', function () {
@@ -183,7 +183,7 @@ test('history is returned in descending order', function () {
     $task = Task::factory()->todo()->for($this->feature)->create();
 
     $this->withToken($this->token)
-        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::Doing->value]);
+        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::InProgress->value]);
 
     $this->withToken($this->token)
         ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::Done->value]);

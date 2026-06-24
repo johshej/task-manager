@@ -181,7 +181,7 @@ test('can update a task from the board', function () {
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openTask', $task->id)
         ->set('editTaskTitle', 'Updated Title')
-        ->set('editTaskStatus', TaskStatus::Doing->value)
+        ->set('editTaskStatus', TaskStatus::InProgress->value)
         ->set('editTaskPriority', 7)
         ->call('saveTask')
         ->assertHasNoErrors();
@@ -189,7 +189,7 @@ test('can update a task from the board', function () {
     $this->assertDatabaseHas('tasks', [
         'id' => $task->id,
         'title' => 'Updated Title',
-        'status' => TaskStatus::Doing->value,
+        'status' => TaskStatus::InProgress->value,
     ]);
 });
 
@@ -291,13 +291,13 @@ test('full UI flow: epic with SSH URL, feature, task, status change, and user hi
     // Edit the task status
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openTask', $task->id)
-        ->set('editTaskStatus', TaskStatus::Doing->value)
+        ->set('editTaskStatus', TaskStatus::InProgress->value)
         ->call('saveTask')
         ->assertHasNoErrors();
 
     $this->assertDatabaseHas('tasks', [
         'id' => $task->id,
-        'status' => TaskStatus::Doing->value,
+        'status' => TaskStatus::InProgress->value,
     ]);
 
     // History is attributed to the logged-in user
@@ -501,7 +501,7 @@ test('new task is appended to end of execution queue', function () {
 test('kanban view renders status columns', function () {
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();
-    Task::factory()->for($feature)->create(['title' => 'Kanban Task', 'status' => TaskStatus::Doing]);
+    Task::factory()->for($feature)->create(['title' => 'Kanban Task', 'status' => TaskStatus::InProgress]);
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->set('viewMode', 'kanban')
@@ -668,7 +668,7 @@ test('board shows AI badge for AI-changed tasks', function () {
         'actor_type' => ActorType::Ai,
         'action' => HistoryAction::StatusChanged,
         'old_values' => ['status' => TaskStatus::Todo->value],
-        'new_values' => ['status' => TaskStatus::Doing->value],
+        'new_values' => ['status' => TaskStatus::InProgress->value],
         'created_at' => now(),
     ]);
 
@@ -784,7 +784,7 @@ test('board feature cards have wire sort item attribute for drag and drop', func
     $feature = Feature::factory()->for($epic)->create();
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
-        ->assertSeeHtml('wire:sort:item="' . $feature->id . '"');
+        ->assertSeeHtml('wire:sort:item="'.$feature->id.'"');
 });
 
 // ── Board navigation: empty-state and collapsed summary selectability ──────────
@@ -815,7 +815,7 @@ test('board collapsed summary row does not have data-selectable', function () {
     $html = Livewire::test('pages::epics.show', ['epic' => $epic])->html();
 
     // The collapsed summary row (x-show="collapsed") must not be selectable
-    expect($html)->not->toContain('x-show="collapsed" ' . PHP_EOL . '                            x-cloak' . PHP_EOL . '                            data-selectable');
+    expect($html)->not->toContain('x-show="collapsed" '.PHP_EOL.'                            x-cloak'.PHP_EOL.'                            data-selectable');
 });
 
 test('board empty-state section opens add task modal on call', function () {

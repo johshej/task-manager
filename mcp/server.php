@@ -12,9 +12,9 @@ declare(strict_types=1);
  * file, then reads URL / TOKEN / EPIC_ID / ACTIVE_TASK_ID / ACTIVE_FEATURE_ID.
  *
  * Tools mirror the task-manager-client skill:
- *   - queue            — list current epic queue (tasks + features, sorted)
+ *   - ai_queue         — list the AI Queue for the current epic (tasks + features, sorted)
  *   - task_get         — get a task
- *   - task_start       — mark doing + set ACTIVE_TASK_ID in .task-manager
+ *   - task_start       — mark in_progress + set ACTIVE_TASK_ID in .task-manager
  *   - task_status      — set task status
  *   - task_note        — add note to task history
  *   - task_complete    — mark done + add summary note + clear ACTIVE_TASK_ID
@@ -157,17 +157,17 @@ function tm_tools(): array
     $idProp = ['type' => 'string', 'description' => 'UUID. Optional — falls back to ACTIVE_TASK_ID / ACTIVE_FEATURE_ID in .task-manager.'];
 
     return [
-        ['name' => 'queue', 'description' => 'Fetch the current epic queue (sorted tasks + features).',
+        ['name' => 'ai_queue', 'description' => 'Fetch the AI Queue for the current epic (sorted tasks + features).',
             'inputSchema' => ['type' => 'object', 'properties' => ['cwd' => $cwdProp]]],
 
         ['name' => 'task_get', 'description' => 'Get a task by id.',
             'inputSchema' => ['type' => 'object', 'properties' => ['task_id' => $idProp, 'cwd' => $cwdProp]]],
 
-        ['name' => 'task_start', 'description' => 'Start a task: PATCH status=doing and write ACTIVE_TASK_ID into .task-manager.',
+        ['name' => 'task_start', 'description' => 'Start a task: PATCH status=in_progress and write ACTIVE_TASK_ID into .task-manager.',
             'inputSchema' => ['type' => 'object', 'required' => ['task_id'],
                 'properties' => ['task_id' => $idProp, 'cwd' => $cwdProp]]],
 
-        ['name' => 'task_status', 'description' => 'Set task status (todo|doing|blocked|building_automated_tests|running_automated_tests|done|merged_to_staging|deployed_to_staging|merged_to_master|deployed_to_master).',
+        ['name' => 'task_status', 'description' => 'Set task status (todo|in_progress|blocked|building_automated_tests|running_automated_tests|done|merged_to_staging|deployed_to_staging|merged_to_master|deployed_to_master).',
             'inputSchema' => ['type' => 'object', 'required' => ['status'],
                 'properties' => ['task_id' => $idProp, 'status' => ['type' => 'string'], 'cwd' => $cwdProp]]],
 
@@ -244,7 +244,7 @@ function tm_call_tool(string $name, array $args): array
     $cfg = tm_load($cwd);
 
     switch ($name) {
-        case 'queue':
+        case 'ai_queue':
             $epic = tm_require($cfg, 'EPIC_ID', null, 'EPIC_ID');
 
             return tm_http($cfg, 'GET', "/epics/$epic/queue");
@@ -256,7 +256,7 @@ function tm_call_tool(string $name, array $args): array
 
         case 'task_start':
             $id = $args['task_id'];
-            $res = tm_http($cfg, 'PATCH', "/tasks/$id/status", ['status' => 'doing']);
+            $res = tm_http($cfg, 'PATCH', "/tasks/$id/status", ['status' => 'in_progress']);
             tm_set_active($cfg, $id, null);
 
             return ['ok' => true, 'task' => $res, 'active_task_id' => $id];

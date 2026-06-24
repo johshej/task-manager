@@ -81,7 +81,7 @@ test('ai agent status update is attributed to ai in history', function () {
     $task = Task::factory()->todo()->create();
 
     $this->withToken($this->aiToken->plainTextToken)
-        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::Doing->value])
+        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::InProgress->value])
         ->assertSuccessful();
 
     $this->assertDatabaseHas('task_histories', [
@@ -124,7 +124,7 @@ test('history correctly distinguishes ai and user entries on the same task', fun
     $task = Task::factory()->todo()->create(['priority' => 3]);
 
     $this->withToken($this->aiToken->plainTextToken)
-        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::Doing->value])
+        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::InProgress->value])
         ->assertSuccessful();
 
     // Reset auth guard cache so the next request resolves the user token fresh
@@ -179,7 +179,7 @@ test('end-to-end: ai agent creates epic, feature, task, and progresses task to d
         ->json('data.id');
 
     // Progress through statuses
-    foreach ([TaskStatus::Doing, TaskStatus::Done] as $status) {
+    foreach ([TaskStatus::InProgress, TaskStatus::Done] as $status) {
         $this->withToken($this->aiToken->plainTextToken)
             ->patchJson("/api/v1/tasks/{$taskId}/status", ['status' => $status->value])
             ->assertSuccessful();
@@ -201,7 +201,7 @@ test('ai task history is readable via the history api endpoint', function () {
     $task = Task::factory()->todo()->create();
 
     $this->withToken($this->aiToken->plainTextToken)
-        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::Doing->value]);
+        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::InProgress->value]);
 
     $response = $this->withToken($this->aiToken->plainTextToken)
         ->getJson("/api/v1/tasks/{$task->id}/history")

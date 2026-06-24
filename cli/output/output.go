@@ -51,7 +51,7 @@ func Epics(epics []map[string]any, jsonMode bool) {
 	rows := make([][]string, 0, len(epics))
 	for _, e := range epics {
 		rows = append(rows, []string{
-			trunc(str(e, "id"), 8),
+			str(e, "id"),
 			trunc(str(e, "name"), 40),
 			str(e, "status"),
 			trunc(str(e, "repository_url"), 55),
@@ -68,7 +68,7 @@ func Features(features []map[string]any, jsonMode bool) {
 	rows := make([][]string, 0, len(features))
 	for _, f := range features {
 		rows = append(rows, []string{
-			trunc(str(f, "id"), 8),
+			str(f, "id"),
 			trunc(str(f, "name"), 40),
 			str(f, "status"),
 			str(f, "resolved_tdd"),
@@ -78,15 +78,32 @@ func Features(features []map[string]any, jsonMode bool) {
 	table([]string{"ID", "NAME", "STATUS", "TDD", "ENV"}, rows)
 }
 
-func Tasks(tasks []map[string]any, jsonMode bool) {
+func Tasks(tasks []map[string]any, jsonMode bool, showDescription bool) {
 	if jsonMode {
 		JSON(tasks)
+		return
+	}
+	if showDescription {
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		for _, t := range tasks {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				str(t, "id"),
+				trunc(str(t, "title"), 50),
+				str(t, "status"),
+				str(t, "priority"),
+				str(t, "execution_order"),
+			)
+			if desc := str(t, "description"); desc != "" {
+				fmt.Fprintf(w, "\t%s\t\t\t\n", trunc(desc, 100))
+			}
+		}
+		w.Flush()
 		return
 	}
 	rows := make([][]string, 0, len(tasks))
 	for _, t := range tasks {
 		rows = append(rows, []string{
-			trunc(str(t, "id"), 8),
+			str(t, "id"),
 			trunc(str(t, "title"), 50),
 			str(t, "status"),
 			str(t, "priority"),
@@ -96,7 +113,7 @@ func Tasks(tasks []map[string]any, jsonMode bool) {
 	table([]string{"ID", "TITLE", "STATUS", "PRI", "ORDER"}, rows)
 }
 
-func Queue(tasks []map[string]any, jsonMode bool) {
+func AiQueue(tasks []map[string]any, jsonMode bool) {
 	if jsonMode {
 		JSON(tasks)
 		return
@@ -105,10 +122,10 @@ func Queue(tasks []map[string]any, jsonMode bool) {
 	for _, t := range tasks {
 		rows = append(rows, []string{
 			str(t, "execution_order"),
-			trunc(str(t, "id"), 8),
+			str(t, "id"),
 			trunc(str(t, "title"), 50),
 			str(t, "status"),
-			trunc(str(t, "feature_id"), 8),
+			str(t, "feature_id"),
 		})
 	}
 	table([]string{"ORDER", "ID", "TITLE", "STATUS", "FEATURE"}, rows)

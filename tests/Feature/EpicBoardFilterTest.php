@@ -78,12 +78,12 @@ test('board shows a done feature with no tasks at all when filtering by done', f
 test('board applies multi-status filter correctly', function () {
     $f1 = Feature::factory()->for($this->epic)->create(['name' => 'Feature One', 'status' => FeatureStatus::Active]);
     $f2 = Feature::factory()->for($this->epic)->create(['name' => 'Feature Two', 'status' => FeatureStatus::Active]);
-    Task::factory()->for($f1)->create(['title' => 'Doing task', 'status' => TaskStatus::Doing]);
+    Task::factory()->for($f1)->create(['title' => 'Doing task', 'status' => TaskStatus::InProgress]);
     Task::factory()->for($f2)->create(['title' => 'Blocked task', 'status' => TaskStatus::Blocked]);
     Task::factory()->for($f2)->create(['title' => 'Todo task', 'status' => TaskStatus::Todo]);
 
     Livewire::test('pages::epics.⚡show', ['epic' => $this->epic])
-        ->set('filterStatuses', [TaskStatus::Doing->value, TaskStatus::Blocked->value])
+        ->set('filterStatuses', [TaskStatus::InProgress->value, TaskStatus::Blocked->value])
         ->assertSee('Feature One')
         ->assertSee('Doing task')
         ->assertSee('Feature Two')

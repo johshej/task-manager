@@ -16,14 +16,35 @@ var tasksCmd = &cobra.Command{
 var tasksListCmd = &cobra.Command{
 	Use:   "list [feature-id]",
 	Short: "List tasks for a feature, or all tasks in the project epic",
-	Args:  cobra.RangeArgs(0, 1),
+	Example: `  tm tasks list
+  tm tasks list --status in_progress
+  tm tasks list --status building_automated_tests
+  tm tasks list --description`,
+	Args: cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		statusFilter, _ := cmd.Flags().GetString("status")
+		showDesc, _ := cmd.Flags().GetBool("description")
+
+		filterAndSort := func(tasks []map[string]any) []map[string]any {
+			if statusFilter != "" {
+				filtered := tasks[:0]
+				for _, t := range tasks {
+					if strField(t, "status") == statusFilter {
+						filtered = append(filtered, t)
+					}
+				}
+				tasks = filtered
+			}
+			return tasks
+		}
+
 		if len(args) == 1 {
 			tasks, err := apiClient.ListTasks(args[0])
 			if err != nil {
 				return err
 			}
-			output.Tasks(tasks, jsonFlag)
+			tasks = filterAndSort(tasks)
+			output.Tasks(tasks, jsonFlag, showDesc)
 			return nil
 		}
 		if projectEpicID == "" {
@@ -44,7 +65,7 @@ var tasksListCmd = &cobra.Command{
 				if err != nil {
 					return err
 				}
-				result = append(result, featureWithTasks{Feature: f, Tasks: tasks})
+				result = append(result, featureWithTasks{Feature: f, Tasks: filterAndSort(tasks)})
 			}
 			output.JSON(result)
 			return nil
@@ -54,12 +75,16 @@ var tasksListCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
+			tasks = filterAndSort(tasks)
+			if statusFilter != "" && len(tasks) == 0 {
+				continue
+			}
 			fmt.Printf("\n── %s (%s) ──\n", strField(f, "name"), strField(f, "status"))
 			if len(tasks) == 0 {
 				fmt.Println("  (no tasks)")
 				continue
 			}
-			output.Tasks(tasks, false)
+			output.Tasks(tasks, false, showDesc)
 		}
 		return nil
 	},
@@ -174,6 +199,9 @@ var tasksNoteCmd = &cobra.Command{
 }
 
 func init() {
+	tasksListCmd.Flags().String("status", "", "Filter by status: todo|in_progress|blocked|building_automated_tests|running_automated_tests|done|merged_to_staging|deployed_to_staging|merged_to_master|deployed_to_master")
+	tasksListCmd.Flags().BoolP("description", "d", false, "Show task descriptions")
+
 	tasksUpdateCmd.Flags().String("title", "", "Task title")
 	tasksUpdateCmd.Flags().String("description", "", "Task description")
 	tasksUpdateCmd.Flags().String("status", "", "Task status")
