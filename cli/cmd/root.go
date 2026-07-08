@@ -14,10 +14,13 @@ var (
 	urlFlag     string
 	tokenFlag   string
 
-	apiClient             *api.Client
-	projectEpicID         string
+	apiClient              *api.Client
+	projectEpicID          string
 	projectActiveTaskID    string
 	projectActiveFeatureID string
+
+	resolvedURL   string
+	resolvedToken string
 )
 
 var rootCmd = &cobra.Command{
@@ -81,6 +84,8 @@ func requireClient(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	resolvedURL = tmURL
+	resolvedToken = tmToken
 	apiClient = api.New(tmURL, tmToken)
 	return nil
 }

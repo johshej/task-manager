@@ -136,6 +136,18 @@ func (c *Client) ListEpics(repoURL string) ([]map[string]any, error) {
 	return toSlice(data)
 }
 
+func (c *Client) CreateEpic(name, repoURL string) (map[string]any, error) {
+	body := map[string]any{"name": name}
+	if repoURL != "" {
+		body["repository_url"] = repoURL
+	}
+	data, err := c.do("POST", "epics", body, nil)
+	if err != nil {
+		return nil, err
+	}
+	return toMap(data)
+}
+
 func (c *Client) GetEpic(id string) (map[string]any, error) {
 	data, err := c.do("GET", "epics/"+id, nil, nil)
 	if err != nil {
