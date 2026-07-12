@@ -92,7 +92,6 @@ new #[Title('Epic Board')] class extends Component {
 
         $this->viewMode = match ($route) {
             'epics.board.kanban' => 'kanban',
-            'epics.board.queue' => 'sort',
             default => 'board',
         };
 
@@ -283,7 +282,7 @@ new #[Title('Epic Board')] class extends Component {
         Feature::findOrFail($this->deletingFeatureId)->delete();
         $this->deletingFeatureId = null;
         $this->modal('delete-feature')->close();
-        unset($this->features, $this->kanbanColumns, $this->sortedQueue, $this->allFeatures);
+        unset($this->features, $this->kanbanColumns, $this->allFeatures);
         Flux::toast(variant: 'success', text: 'Feature deleted.');
         $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
@@ -312,16 +311,12 @@ new #[Title('Epic Board')] class extends Component {
 
         $feature = Feature::findOrFail($this->addingTaskForFeatureId);
 
-        $maxOrder = Task::whereHas('feature', fn ($q) => $q->where('epic_id', $this->epic->id))
-            ->max('execution_order') ?? -1;
-
         $feature->tasks()->create([
             'title' => $this->newTaskTitle,
             'description' => $this->newTaskDescription ?: null,
             'status' => TaskStatus::Todo,
             'priority' => $this->newTaskPriority,
             'order_index' => $feature->tasks()->count(),
-            'execution_order' => $maxOrder + 1,
             'tdd' => $this->tddNullable($this->newTaskTdd),
             'ai_mode' => $this->newTaskAiMode ?: null,
             'environment' => $this->newTaskEnvironment ?: null,
@@ -330,7 +325,7 @@ new #[Title('Epic Board')] class extends Component {
         $this->reset('newTaskTitle', 'newTaskDescription', 'addingTaskForFeatureId', 'newTaskTdd', 'newTaskAiMode', 'newTaskEnvironment');
         $this->newTaskPriority = 5;
         $this->modal('create-task')->close();
-        unset($this->features, $this->kanbanColumns, $this->sortedQueue);
+        unset($this->features, $this->kanbanColumns);
         Flux::toast(variant: 'success', text: 'Task created.');
     }
 
@@ -383,7 +378,7 @@ new #[Title('Epic Board')] class extends Component {
         ]);
 
         $this->lastEditedId = $this->selectedTaskId;
-        unset($this->selectedTask, $this->features, $this->kanbanColumns, $this->sortedQueue);
+        unset($this->selectedTask, $this->features, $this->kanbanColumns);
         Flux::toast(variant: 'success', text: 'Task saved.');
         $this->closeTask();
     }
@@ -419,7 +414,7 @@ new #[Title('Epic Board')] class extends Component {
         $task->delete();
         $this->deletingTaskId = null;
         $this->modal('delete-task')->close();
-        unset($this->features, $this->kanbanColumns, $this->sortedQueue);
+        unset($this->features, $this->kanbanColumns);
         Flux::toast(variant: 'success', text: 'Task deleted.');
         session()->flash('highlighted_id', $highlightId);
         $this->redirect(route('epics.board', $this->epic), navigate: true);
@@ -529,58 +524,67 @@ new #[Title('Epic Board')] class extends Component {
             $task->update(['status' => $newStatus]);
         }
 
-        $ids = Task::whereHas('feature', fn ($q) => $q->where('epic_id', $this->epic->id))
+        // Rebuild the flat, feature-grouped order for this status column (features
+        // in board order, tasks in board order per feature) and splice the dragged
+        // task into its dropped position, to find how many of its OWN feature's
+        // same-status siblings now precede it.
+        $featureOrder = Feature::where('epic_id', $this->epic->id)
+            ->orderBy('order_index')
+            ->pluck('id')
+            ->flip();
+
+        $columnTasks = Task::whereIn('feature_id', $featureOrder->keys())
+            ->where('status', $statusValue)
+            ->where('id', '!=', $taskId)
+            ->orderBy('order_index')
+            ->get(['id', 'feature_id']);
+
+        $ordered = $columnTasks->sortBy(fn ($t) => $featureOrder[$t->feature_id] ?? PHP_INT_MAX)->values();
+        $flatIds = $ordered->pluck('id')->toArray();
+        $featureIdsById = $ordered->pluck('feature_id', 'id')->toArray();
+
+        $position = max(0, min($position, count($flatIds)));
+        array_splice($flatIds, $position, 0, [$taskId]);
+
+        $siblingsBefore = 0;
+        foreach ($flatIds as $id) {
+            if ($id === $taskId) {
+                break;
+            }
+            if (($featureIdsById[$id] ?? null) === $task->feature_id) {
+                $siblingsBefore++;
+            }
+        }
+
+        // Re-insert the task into its feature's full (all-status) order_index
+        // sequence, anchored next to that same-status sibling — this is the same
+        // ordering the board view reads, so both stay consistent.
+        $sameStatusIds = Task::where('feature_id', $task->feature_id)
             ->where('status', $statusValue)
             ->where('id', '!=', $taskId)
             ->orderBy('order_index')
             ->pluck('id')
             ->toArray();
 
-        array_splice($ids, $position, 0, [$taskId]);
+        $featureTaskIds = Task::where('feature_id', $task->feature_id)
+            ->where('id', '!=', $taskId)
+            ->orderBy('order_index')
+            ->pluck('id')
+            ->toArray();
 
-        foreach ($ids as $idx => $id) {
+        $withinFeaturePosition = min($siblingsBefore, count($sameStatusIds));
+        $insertAt = $withinFeaturePosition < count($sameStatusIds)
+            ? array_search($sameStatusIds[$withinFeaturePosition], $featureTaskIds)
+            : count($featureTaskIds);
+
+        array_splice($featureTaskIds, $insertAt, 0, [$taskId]);
+
+        foreach ($featureTaskIds as $idx => $id) {
             Task::where('id', $id)->update(['order_index' => $idx]);
         }
 
         unset($this->kanbanColumns, $this->features);
-    }
-
-    public function sortQueue(string $itemId, int $position): void
-    {
-        // itemId format: "task:{uuid}" or "feature:{uuid}"
-        [$type, $id] = str_contains($itemId, ':') ? explode(':', $itemId, 2) : ['task', $itemId];
-
-        $tasks = Task::whereHas('feature', fn ($q) => $q->where('epic_id', $this->epic->id))
-            ->orderByRaw('COALESCE(execution_order, 999999)')
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($t) => ['type' => 'task', 'id' => $t->id, 'order' => $t->execution_order ?? PHP_INT_MAX]);
-
-        $features = Feature::where('epic_id', $this->epic->id)
-            ->doesntHave('tasks')
-            ->orderByRaw('COALESCE(execution_order, 999999)')
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($f) => ['type' => 'feature', 'id' => $f->id, 'order' => $f->execution_order ?? PHP_INT_MAX]);
-
-        $allItems = $tasks->merge($features)
-            ->sortBy('order')
-            ->values()
-            ->map(fn ($item) => ['type' => $item['type'], 'id' => $item['id']])
-            ->toArray();
-
-        $allItems = array_values(array_filter($allItems, fn ($item) => !($item['type'] === $type && $item['id'] === $id)));
-        array_splice($allItems, $position, 0, [['type' => $type, 'id' => $id]]);
-
-        foreach ($allItems as $idx => $item) {
-            if ($item['type'] === 'task') {
-                Task::where('id', $item['id'])->update(['execution_order' => $idx]);
-            } else {
-                Feature::where('id', $item['id'])->update(['execution_order' => $idx]);
-            }
-        }
-
-        unset($this->sortedQueue);
+        $this->dispatch('board-sorted', id: $taskId, type: 'task');
     }
 
     // ── Computed ──────────────────────────────────────────────────────────────
@@ -611,7 +615,7 @@ new #[Title('Epic Board')] class extends Component {
         return $this->epic->features()->orderBy('order_index')->get(['id', 'name']);
     }
 
-    /** @return array<int, array{status: TaskStatus, tasks: Collection<int, Task>}> */
+    /** @return array<int, array{status: TaskStatus, groups: Collection<int, array{feature: Feature, tasks: Collection<int, Task>}>, count: int}> */
     #[Computed]
     public function kanbanColumns(): array
     {
@@ -619,42 +623,30 @@ new #[Title('Epic Board')] class extends Component {
             ? array_values(array_filter(TaskStatus::cases(), fn ($s) => in_array($s->value, $this->filterStatuses)))
             : TaskStatus::cases();
 
-        $tasks = Task::with(['feature', 'latestHistory'])
-            ->whereHas('feature', fn ($q) => $q->where('epic_id', $this->epic->id))
-            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('feature_id', $this->filterFeatureIds))
+        $features = $this->epic->features()
+            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
+            ->with(['tasks' => fn ($q) => $q->orderBy('order_index')->with('latestHistory')])
             ->orderBy('order_index')
             ->get();
 
         $columns = [];
         foreach ($statuses as $status) {
+            $groups = $features
+                ->map(fn ($feature) => [
+                    'feature' => $feature,
+                    'tasks' => $feature->tasks->where('status', $status)->values(),
+                ])
+                ->filter(fn ($group) => $group['tasks']->isNotEmpty())
+                ->values();
+
             $columns[] = [
                 'status' => $status,
-                'tasks' => $tasks->filter(fn ($t) => $t->status === $status)->values(),
+                'groups' => $groups,
+                'count' => $groups->sum(fn ($group) => $group['tasks']->count()),
             ];
         }
 
         return $columns;
-    }
-
-    /** @return Collection<int, Task|Feature> */
-    #[Computed]
-    public function sortedQueue(): Collection
-    {
-        $tasks = Task::with(['feature', 'latestHistory'])
-            ->whereHas('feature', fn ($q) => $q->where('epic_id', $this->epic->id))
-            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('feature_id', $this->filterFeatureIds))
-            ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
-            ->get();
-
-        $features = Feature::where('epic_id', $this->epic->id)
-            ->doesntHave('tasks')
-            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
-            ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
-            ->get();
-
-        return $tasks->merge($features)
-            ->sortBy(fn ($item) => [$item->execution_order ?? PHP_INT_MAX, $item->created_at->timestamp])
-            ->values();
     }
 
     #[Computed]
@@ -771,15 +763,6 @@ new #[Title('Epic Board')] class extends Component {
                     :href="route('epics.board.kanban', $epic)"
                     wire:navigate
                 >{{ __('Kanban') }}</flux:button>
-            </flux:tooltip>
-            <flux:tooltip content="3">
-                <flux:button
-                    variant="{{ $viewMode === 'sort' ? 'filled' : 'ghost' }}"
-                    size="sm"
-                    data-shortcut="view-sort"
-                    :href="route('epics.board.queue', $epic)"
-                    wire:navigate
-                >{{ __('AI Queue') }}</flux:button>
             </flux:tooltip>
         </div>
         <div class="flex items-center gap-1">
@@ -997,13 +980,16 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- ── Kanban view ──────────────────────────────────────────────────────── --}}
     @elseif ($viewMode === 'kanban')
-        <div class="overflow-x-auto pb-4" data-board-mode="kanban">
+        <div class="overflow-x-auto pb-4" data-board-mode="kanban"
+             x-on:board-feature-reorder.window="$wire.sortBoardFeature($event.detail.featureId, $event.detail.position)"
+             x-on:kanban-task-reorder.window="$wire.sortKanban($event.detail.taskId, $event.detail.position, $event.detail.statusValue)"
+        >
             <div class="flex gap-4" style="min-width: max-content">
                 @foreach ($this->kanbanColumns as $column)
                     <div class="flex w-64 flex-col gap-2" data-kanban-col="{{ $loop->index }}">
                         <div class="flex items-center gap-2 px-1">
                             <flux:badge color="{{ $column['status']->color() }}" size="sm">{{ $column['status']->label() }}</flux:badge>
-                            <span class="text-xs text-zinc-400">{{ $column['tasks']->count() }}</span>
+                            <span class="text-xs text-zinc-400">{{ $column['count'] }}</span>
                         </div>
                         <ul
                             wire:sort="sortKanban"
@@ -1011,133 +997,59 @@ new #[Title('Epic Board')] class extends Component {
                             wire:sort:group-id="{{ $column['status']->value }}"
                             class="min-h-16 list-none space-y-2 rounded-xl border border-dashed border-zinc-200 p-2 dark:border-zinc-700"
                         >
-                            @foreach ($column['tasks'] as $task)
+                            @foreach ($column['groups'] as $group)
                                 <li
-                                    wire:key="kanban-{{ $task->id }}"
-                                    wire:sort:item="{{ $task->id }}"
+                                    wire:key="kanban-feature-{{ $column['status']->value }}-{{ $group['feature']->id }}"
                                     data-selectable
-                                    @if ($highlightedId === $task->id) data-highlighted @endif
-                                    @class([
-                                        'rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900',
-                                        'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $task->id,
-                                    ])
-                                    @if ($highlightedId === $task->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
-                                >
-                                    <div class="flex items-start gap-2 p-3">
-                                        <div wire:sort:handle class="mt-0.5 shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500">
-                                            <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
-                                                <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
-                                                <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
-                                                <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
-                                            </svg>
-                                        </div>
-                                        <div class="min-w-0 flex-1">
-                                            <a
-                                                data-open-btn
-                                                wire:navigate
-                                                href="{{ route('epics.board.task', [$epic, $task]) }}"
-                                                class="block w-full text-left text-sm font-medium leading-snug hover:underline"
-                                                style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;"
-                                            >{{ $task->title }}</a>
-                                            <div class="mt-1.5 flex flex-wrap items-center gap-1">
-                                                <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
-                                                @if ($task->resolvedEnvironment())
-                                                    <flux:badge color="sky" size="sm">{{ $task->resolvedEnvironment() }}</flux:badge>
-                                                @endif
-                                                @if ($task->feature)
-                                                    <span class="text-xs text-zinc-400 truncate">{{ $task->feature->name }}</span>
-                                                @endif
-                                                @if ($task->latestHistory?->actor_type === ActorType::Ai)
-                                                    <flux:badge color="purple" size="sm" icon="cpu-chip">AI</flux:badge>
-                                                @endif
+                                    data-feature-id="{{ $group['feature']->id }}"
+                                    class="cursor-pointer truncate rounded px-1 pt-1 text-xs font-semibold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                                >{{ $group['feature']->name }}</li>
+                                @foreach ($group['tasks'] as $task)
+                                    <li
+                                        wire:key="kanban-{{ $task->id }}"
+                                        wire:sort:item="{{ $task->id }}"
+                                        data-selectable
+                                        @if ($highlightedId === $task->id) data-highlighted @endif
+                                        @class([
+                                            'rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900',
+                                            'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $task->id,
+                                        ])
+                                        @if ($highlightedId === $task->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
+                                    >
+                                        <div class="flex items-start gap-2 p-3">
+                                            <div wire:sort:handle class="mt-0.5 shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500">
+                                                <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
+                                                    <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
+                                                    <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                                                    <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <a
+                                                    data-open-btn
+                                                    wire:navigate
+                                                    href="{{ route('epics.board.task', [$epic, $task]) }}"
+                                                    class="block w-full text-left text-sm font-medium leading-snug hover:underline"
+                                                    style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;"
+                                                >{{ $task->title }}</a>
+                                                <div class="mt-1.5 flex flex-wrap items-center gap-1">
+                                                    <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
+                                                    @if ($task->resolvedEnvironment())
+                                                        <flux:badge color="sky" size="sm">{{ $task->resolvedEnvironment() }}</flux:badge>
+                                                    @endif
+                                                    @if ($task->latestHistory?->actor_type === ActorType::Ai)
+                                                        <flux:badge color="purple" size="sm" icon="cpu-chip">AI</flux:badge>
+                                                    @endif
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </li>
+                                    </li>
+                                @endforeach
                             @endforeach
                         </ul>
                     </div>
                 @endforeach
             </div>
-        </div>
-
-    {{-- ── Sort / AI Queue view ─────────────────────────────────────────────── --}}
-    @elseif ($viewMode === 'sort')
-        <div data-board-mode="queue">
-            <div class="mb-3 flex items-center justify-between">
-                <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
-                    {{ __('Drag tasks to set the order in which the AI should execute them.') }}
-                </flux:text>
-                <flux:text class="text-xs text-zinc-400">{{ $this->sortedQueue->count() }} {{ Str::plural('item', $this->sortedQueue->count()) }}</flux:text>
-            </div>
-
-            @if ($this->sortedQueue->isNotEmpty())
-                <ul wire:sort="sortQueue"
-                    x-on:queue-reorder.window="$wire.sortQueue($event.detail.itemId, $event.detail.position)"
-                    class="list-none space-y-2">
-                    @foreach ($this->sortedQueue as $index => $item)
-                        @php $isTask = $item instanceof \App\Models\Task; @endphp
-                        <li
-                            wire:key="queue-{{ $item->id }}"
-                            wire:sort:item="{{ $isTask ? 'task' : 'feature' }}:{{ $item->id }}"
-                            data-selectable
-                            @if ($highlightedId === $item->id) data-highlighted @endif
-                            @class([
-                                'flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900',
-                                'ring-2 ring-blue-400 dark:ring-blue-500' => $highlightedId === $item->id,
-                            ])
-                            @if ($highlightedId === $item->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
-                        >
-                            <span class="w-7 shrink-0 pt-0.5 text-right font-mono text-sm text-zinc-400">{{ $index + 1 }}</span>
-                            <div wire:sort:handle class="shrink-0 cursor-grab pt-0.5 text-zinc-300 hover:text-zinc-500">
-                                <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
-                                    <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
-                                    <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
-                                    <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
-                                </svg>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                {{-- Badges --}}
-                                <div class="flex flex-wrap items-center gap-1.5">
-                                    <flux:badge color="{{ $item->status->color() }}" size="sm">{{ $item->status->label() }}</flux:badge>
-                                    @if ($isTask)
-                                        <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $item->priority }}</flux:badge>
-                                    @endif
-                                    @if ($item->resolvedTdd() !== null)
-                                        <flux:badge color="{{ $item->resolvedTdd() ? 'green' : 'zinc' }}" size="sm">TDD</flux:badge>
-                                    @endif
-                                    @if ($item->resolvedEnvironment())
-                                        <flux:badge color="sky" size="sm">{{ $item->resolvedEnvironment() }}</flux:badge>
-                                    @endif
-                                </div>
-
-                                {{-- Feature name (always above, prominent) --}}
-                                @if ($isTask && $item->feature)
-                                    <p class="mt-1.5 truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">Feature: {{ $item->feature->name }}</p>
-                                    <a
-                                        data-open-btn
-                                        wire:navigate
-                                        href="{{ route('epics.board.task', [$epic, $item]) }}"
-                                        class="mt-0.5 block truncate text-xs text-zinc-500 hover:underline dark:text-zinc-400"
-                                    >{{ $item->title }}</a>
-                                @elseif (! $isTask)
-                                    <a
-                                        data-open-btn
-                                        wire:navigate
-                                        href="{{ route('epics.board.feature', [$epic, $item]) }}"
-                                        class="mt-1.5 block truncate text-sm font-semibold text-zinc-800 hover:underline dark:text-zinc-100"
-                                    >Feature: {{ $item->name }}</a>
-                                @endif
-                            </div>
-                        </li>
-                    @endforeach
-                </ul>
-            @else
-                <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-16 dark:border-zinc-700 dark:bg-zinc-900/50">
-                    <flux:text class="text-base font-medium text-zinc-500 dark:text-zinc-400">{{ __('No items in queue') }}</flux:text>
-                    <flux:text class="mt-1 text-sm text-zinc-400 dark:text-zinc-500">{{ __('Create features or tasks, or adjust your filters.') }}</flux:text>
-                </div>
-            @endif
         </div>
     @endif
 

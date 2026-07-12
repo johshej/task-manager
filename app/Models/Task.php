@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[ObservedBy(TaskObserver::class)]
-#[Fillable(['feature_id', 'title', 'description', 'status', 'priority', 'assigned_to', 'order_index', 'execution_order', 'tdd', 'ai_mode', 'environment'])]
+#[Fillable(['feature_id', 'title', 'description', 'status', 'priority', 'assigned_to', 'order_index', 'tdd', 'ai_mode', 'environment'])]
 class Task extends Model
 {
     /** @use HasFactory<TaskFactory> */
@@ -27,7 +27,6 @@ class Task extends Model
             'status' => TaskStatus::class,
             'priority' => 'integer',
             'order_index' => 'integer',
-            'execution_order' => 'integer',
             'tdd' => 'boolean',
         ];
     }

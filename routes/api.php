@@ -20,7 +20,6 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::delete('tokens/{apiToken}', [TokenController::class, 'destroy']);
 
     Route::apiResource('epics', EpicController::class);
-    Route::get('epics/{epic}/queue', [EpicController::class, 'queue']);
     Route::get('epics/{epic}/features', [FeatureController::class, 'index']);
     Route::get('epics/{epic}/history', [EpicHistoryController::class, 'index']);
     Route::post('epics/{epic}/history', [EpicHistoryController::class, 'store']);
@@ -42,7 +41,6 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::patch('tasks/{task}/assign', [TaskController::class, 'updateAssign']);
     Route::patch('tasks/{task}/priority', [TaskController::class, 'updatePriority']);
     Route::patch('tasks/{task}/order', [TaskController::class, 'updateOrder']);
-    Route::patch('tasks/{task}/execution-order', [TaskController::class, 'updateExecutionOrder']);
 
     Route::get('tasks/{task}/history', [TaskHistoryController::class, 'index']);
     Route::post('tasks/{task}/history', [TaskHistoryController::class, 'store']);

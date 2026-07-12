@@ -67,19 +67,6 @@ test('deleteEpic sends DELETE', function () {
     Http::assertSent(fn ($req) => $req->method() === 'DELETE');
 });
 
-test('getEpicQueue returns tasks ordered by execution_order', function () {
-    Http::fake(['https://tm.example.com/*' => Http::response(['data' => [
-        ['id' => 't1', 'execution_order' => 0],
-        ['id' => 't2', 'execution_order' => 1],
-    ]])]);
-
-    $tasks = makeClient()->getEpicQueue('abc');
-
-    Http::assertSent(fn ($req) => str_ends_with($req->url(), '/queue'));
-    expect($tasks)->toHaveCount(2)
-        ->and($tasks[0]['execution_order'])->toBe(0);
-});
-
 test('addEpicNote sends note to epic history', function () {
     Http::fake(['https://tm.example.com/*' => Http::response(['data' => ['id' => 'h1', 'action' => 'note']], 201)]);
 

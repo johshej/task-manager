@@ -481,23 +481,6 @@ test('null tdd on all ancestors resolves to null', function () {
     expect($task->resolvedTdd())->toBeNull();
 });
 
-// ── New task gets last execution order ────────────────────────────────────────
-
-test('new task is appended to end of execution queue', function () {
-    $epic = Epic::factory()->create();
-    $feature = Feature::factory()->for($epic)->create();
-    $existing = Task::factory()->for($feature)->create(['execution_order' => 5]);
-
-    Livewire::test('pages::epics.show', ['epic' => $epic])
-        ->call('openAddTask', $feature->id)
-        ->set('newTaskTitle', 'Last Task')
-        ->call('createTask')
-        ->assertHasNoErrors();
-
-    $newTask = $feature->tasks()->where('title', 'Last Task')->firstOrFail();
-    expect($newTask->execution_order)->toBe(6);
-});
-
 // ── Kanban view ───────────────────────────────────────────────────────────────
 
 test('kanban view renders status columns', function () {
@@ -525,33 +508,91 @@ test('sortKanban updates task status', function () {
     ]);
 });
 
-// ── Execution queue (sort view) ───────────────────────────────────────────────
-
-test('sort queue view renders tasks in execution order', function () {
+test('sortKanban reorders tasks within the same feature and status', function () {
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();
-    Task::factory()->for($feature)->create(['title' => 'First Task', 'execution_order' => 0]);
-    Task::factory()->for($feature)->create(['title' => 'Second Task', 'execution_order' => 1]);
+    $taskA = Task::factory()->for($feature)->create(['title' => 'A', 'status' => TaskStatus::Todo, 'order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['title' => 'B', 'status' => TaskStatus::Todo, 'order_index' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['title' => 'C', 'status' => TaskStatus::Todo, 'order_index' => 2]);
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
-        ->set('viewMode', 'sort')
-        ->assertSeeInOrder(['First Task', 'Second Task']);
+        ->call('sortKanban', $taskC->id, 0, TaskStatus::Todo->value);
+
+    expect($taskC->fresh()->order_index)->toBe(0);
+    expect($taskA->fresh()->order_index)->toBe(1);
+    expect($taskB->fresh()->order_index)->toBe(2);
 });
 
-test('sortQueue reorders execution_order', function () {
+test('sortKanban keeps other-status tasks in the feature ordered correctly', function () {
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();
-    $taskA = Task::factory()->for($feature)->create(['execution_order' => 0]);
-    $taskB = Task::factory()->for($feature)->create(['execution_order' => 1]);
-    $taskC = Task::factory()->for($feature)->create(['execution_order' => 2]);
+    $todoA = Task::factory()->for($feature)->create(['status' => TaskStatus::Todo, 'order_index' => 0]);
+    Task::factory()->for($feature)->create(['status' => TaskStatus::Done, 'order_index' => 1]);
+    $todoB = Task::factory()->for($feature)->create(['status' => TaskStatus::Todo, 'order_index' => 2]);
 
-    // Move taskC to position 0 (first)
     Livewire::test('pages::epics.show', ['epic' => $epic])
-        ->call('sortQueue', $taskC->id, 0);
+        ->call('sortKanban', $todoB->id, 0, TaskStatus::Todo->value);
 
-    expect($taskC->fresh()->execution_order)->toBe(0);
-    expect($taskA->fresh()->execution_order)->toBe(1);
-    expect($taskB->fresh()->execution_order)->toBe(2);
+    expect($todoB->fresh()->order_index)->toBeLessThan($todoA->fresh()->order_index);
+});
+
+test('reordering a task in kanban is reflected on the board view', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['title' => 'First', 'status' => TaskStatus::Todo, 'order_index' => 0]);
+    $second = Task::factory()->for($feature)->create(['title' => 'Second', 'status' => TaskStatus::Todo, 'order_index' => 1]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('sortKanban', $second->id, 0, TaskStatus::Todo->value);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->assertSeeInOrder(['Second', 'First']);
+});
+
+test('kanban groups tasks under their feature, ordered like the board', function () {
+    $epic = Epic::factory()->create();
+    $featureB = Feature::factory()->for($epic)->create(['name' => 'Feature B', 'order_index' => 1]);
+    $featureA = Feature::factory()->for($epic)->create(['name' => 'Feature A', 'order_index' => 0]);
+    Task::factory()->for($featureA)->create(['title' => 'A2', 'status' => TaskStatus::Todo, 'order_index' => 1]);
+    Task::factory()->for($featureA)->create(['title' => 'A1', 'status' => TaskStatus::Todo, 'order_index' => 0]);
+    Task::factory()->for($featureB)->create(['title' => 'B1', 'status' => TaskStatus::Todo, 'order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban')
+        ->assertSeeInOrder(['Feature A', 'A1', 'A2', 'Feature B', 'B1']);
+});
+
+test('kanban only shows a feature group in columns matching its tasks statuses', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create(['name' => 'Mixed Feature']);
+    Task::factory()->for($feature)->create(['title' => 'Todo Task', 'status' => TaskStatus::Todo]);
+    Task::factory()->for($feature)->create(['title' => 'Done Task', 'status' => TaskStatus::Done]);
+
+    $component = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban');
+
+    $columns = collect($component->get('kanbanColumns'));
+    $todoColumn = $columns->firstWhere('status', TaskStatus::Todo);
+    $doneColumn = $columns->firstWhere('status', TaskStatus::Done);
+
+    expect($todoColumn['groups'])->toHaveCount(1);
+    expect($todoColumn['groups'][0]['tasks'])->toHaveCount(1);
+    expect($doneColumn['groups'])->toHaveCount(1);
+    expect($doneColumn['groups'][0]['tasks'])->toHaveCount(1);
+});
+
+test('a feature with no tasks in a status does not appear in that column', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['status' => TaskStatus::Todo]);
+
+    $component = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban');
+
+    $columns = collect($component->get('kanbanColumns'));
+    $doneColumn = $columns->firstWhere('status', TaskStatus::Done);
+
+    expect($doneColumn['groups'])->toHaveCount(0);
 });
 
 // ── Filters ───────────────────────────────────────────────────────────────────

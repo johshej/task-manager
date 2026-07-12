@@ -22,7 +22,6 @@ class TaskResource extends JsonResource
             'priority' => $this->priority,
             'assigned_to' => $this->assigned_to,
             'order_index' => $this->order_index,
-            'execution_order' => $this->execution_order,
             'tdd' => $this->tdd,
             'ai_mode' => $this->ai_mode,
             'environment' => $this->environment,

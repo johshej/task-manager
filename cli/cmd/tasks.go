@@ -108,7 +108,7 @@ var tasksUpdateCmd = &cobra.Command{
 	Use:   "update <id>",
 	Short: "Update a task",
 	Example: `  tm tasks update abc123 --title "New title"
-  tm tasks update abc123 --priority 2 --execution-order 1
+  tm tasks update abc123 --priority 2
   tm tasks update abc123 --environment Production`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -116,10 +116,6 @@ var tasksUpdateCmd = &cobra.Command{
 		if cmd.Flags().Changed("priority") {
 			val, _ := cmd.Flags().GetInt("priority")
 			fields["priority"] = val
-		}
-		if cmd.Flags().Changed("execution-order") {
-			val, _ := cmd.Flags().GetInt("execution-order")
-			fields["execution_order"] = val
 		}
 		if cmd.Flags().Changed("tdd") {
 			val, _ := cmd.Flags().GetBool("tdd")
@@ -208,7 +204,6 @@ func init() {
 	tasksUpdateCmd.Flags().String("environment", "", "Environment (Development, Production, Staging, Other)")
 	tasksUpdateCmd.Flags().String("ai_mode", "", "AI mode")
 	tasksUpdateCmd.Flags().Int("priority", 0, "Priority (integer)")
-	tasksUpdateCmd.Flags().Int("execution-order", 0, "Execution order")
 	tasksUpdateCmd.Flags().Bool("tdd", false, "Enable TDD mode")
 
 	addNoteFlags(tasksNoteCmd)

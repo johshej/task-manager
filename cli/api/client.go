@@ -164,14 +164,6 @@ func (c *Client) UpdateEpic(id string, fields map[string]any) (map[string]any, e
 	return toMap(data)
 }
 
-func (c *Client) GetEpicQueue(id string) ([]map[string]any, error) {
-	data, err := c.do("GET", "epics/"+id+"/queue", nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return toSlice(data)
-}
-
 func (c *Client) GetEpicHistory(id string) ([]map[string]any, error) {
 	data, err := c.do("GET", "epics/"+id+"/history", nil, nil)
 	if err != nil {

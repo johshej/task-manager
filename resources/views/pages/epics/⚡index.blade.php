@@ -31,7 +31,7 @@ new #[Title('Epics')] class extends Component {
 
         If a feature has no tasks, treat the feature itself as the unit of work — use its name and description as the specification.
 
-        When given a specific feature or task, work only on that. When asked to keep working on available items, use the AI Queue for this epic to determine priority — work through tasks top to bottom, one at a time, creating or switching to the feature branch for each. If you can do no more on a task and it is not done, add status as described below and move to the next one.
+        When given a specific feature or task, work only on that. When asked to keep working on available items, use the board/kanban order for this epic to determine priority — features and tasks are ordered by their position on the board (top to bottom within each feature), so work through them in that order, one at a time, creating or switching to the feature branch for each. If you can do no more on a task and it is not done, add status as described below and move to the next one.
 
         When given a task, read its title, description, and thread history for context. Check the feature it belongs to for scope, and the epic for overall direction.
 

@@ -17,7 +17,6 @@ class FeatureResource extends JsonResource
             'description' => $this->description,
             'status' => $this->status,
             'order_index' => $this->order_index,
-            'execution_order' => $this->execution_order,
             'tdd' => $this->tdd,
             'ai_mode' => $this->ai_mode,
             'environment' => $this->environment,

@@ -12,7 +12,6 @@ declare(strict_types=1);
  * file, then reads URL / TOKEN / EPIC_ID / ACTIVE_TASK_ID / ACTIVE_FEATURE_ID.
  *
  * Tools mirror the task-manager-client skill:
- *   - ai_queue         — list the AI Queue for the current epic (tasks + features, sorted)
  *   - task_get         — get a task
  *   - task_start       — mark in_progress + set ACTIVE_TASK_ID in .task-manager
  *   - task_status      — set task status
@@ -157,9 +156,6 @@ function tm_tools(): array
     $idProp = ['type' => 'string', 'description' => 'UUID. Optional — falls back to ACTIVE_TASK_ID / ACTIVE_FEATURE_ID in .task-manager.'];
 
     return [
-        ['name' => 'ai_queue', 'description' => 'Fetch the AI Queue for the current epic (sorted tasks + features).',
-            'inputSchema' => ['type' => 'object', 'properties' => ['cwd' => $cwdProp]]],
-
         ['name' => 'task_get', 'description' => 'Get a task by id.',
             'inputSchema' => ['type' => 'object', 'properties' => ['task_id' => $idProp, 'cwd' => $cwdProp]]],
 
@@ -244,11 +240,6 @@ function tm_call_tool(string $name, array $args): array
     $cfg = tm_load($cwd);
 
     switch ($name) {
-        case 'ai_queue':
-            $epic = tm_require($cfg, 'EPIC_ID', null, 'EPIC_ID');
-
-            return tm_http($cfg, 'GET', "/epics/$epic/queue");
-
         case 'task_get':
             $id = tm_require($cfg, 'ACTIVE_TASK_ID', $args['task_id'] ?? null, 'task_id');
 

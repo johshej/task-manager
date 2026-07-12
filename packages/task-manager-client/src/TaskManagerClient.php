@@ -51,12 +51,6 @@ class TaskManagerClient
         $this->delete("epics/{$epicId}");
     }
 
-    /** @return array<int, mixed> Ordered by execution_order ascending */
-    public function getEpicQueue(string $epicId): array
-    {
-        return $this->get("epics/{$epicId}/queue");
-    }
-
     /** @return array<int, mixed> */
     public function listFeatures(string $epicId): array
     {

@@ -47,7 +47,6 @@ Use `--profile <name>` to switch profiles, `--json` for machine-readable output.
 tm epics list
 tm epics list --repo git@github.com:user/repo.git
 tm epics get <id>
-tm epics queue <id>              # AI execution queue, ordered by priority
 tm epics history <id>
 tm epics note <id> --message "Started scoping"
 
@@ -71,6 +70,6 @@ tm tasks note <id> --metadata '{"message":"done","model":"claude-sonnet-4-6","du
 All commands support `--json` for structured output:
 
 ```bash
-tm epics queue <id> --json
+tm tasks list <feature-id> --json
 tm tasks note <id> --json --metadata '{"message":"Analysis complete","model":"claude-sonnet-4-6"}'
 ```

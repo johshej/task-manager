@@ -86,15 +86,14 @@ func Tasks(tasks []map[string]any, jsonMode bool, showDescription bool) {
 	if showDescription {
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		for _, t := range tasks {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 				str(t, "id"),
 				trunc(str(t, "title"), 50),
 				str(t, "status"),
 				str(t, "priority"),
-				str(t, "execution_order"),
 			)
 			if desc := str(t, "description"); desc != "" {
-				fmt.Fprintf(w, "\t%s\t\t\t\n", trunc(desc, 100))
+				fmt.Fprintf(w, "\t%s\t\t\n", trunc(desc, 100))
 			}
 		}
 		w.Flush()
@@ -107,28 +106,9 @@ func Tasks(tasks []map[string]any, jsonMode bool, showDescription bool) {
 			trunc(str(t, "title"), 50),
 			str(t, "status"),
 			str(t, "priority"),
-			str(t, "execution_order"),
 		})
 	}
-	table([]string{"ID", "TITLE", "STATUS", "PRI", "ORDER"}, rows)
-}
-
-func AiQueue(tasks []map[string]any, jsonMode bool) {
-	if jsonMode {
-		JSON(tasks)
-		return
-	}
-	rows := make([][]string, 0, len(tasks))
-	for _, t := range tasks {
-		rows = append(rows, []string{
-			str(t, "execution_order"),
-			str(t, "id"),
-			trunc(str(t, "title"), 50),
-			str(t, "status"),
-			str(t, "feature_id"),
-		})
-	}
-	table([]string{"ORDER", "ID", "TITLE", "STATUS", "FEATURE"}, rows)
+	table([]string{"ID", "TITLE", "STATUS", "PRI"}, rows)
 }
 
 func History(entries []map[string]any, jsonMode bool) {
