@@ -56,7 +56,7 @@ test('can create an epic', function () {
     $this->assertDatabaseHas('epics', [
         'name' => 'My New Epic',
         'description' => 'A description',
-        'status' => EpicStatus::Active->value,
+        'status' => EpicStatus::New->value,
     ]);
 });
 

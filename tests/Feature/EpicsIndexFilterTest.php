@@ -15,12 +15,14 @@ beforeEach(function () {
 
 // ── Default filter ────────────────────────────────────────────────────────────
 
-test('epics index shows only active epics by default', function () {
+test('epics index shows only new and active epics by default', function () {
+    Epic::factory()->create(['name' => 'New Epic', 'status' => EpicStatus::New]);
     Epic::factory()->create(['name' => 'Active Epic', 'status' => EpicStatus::Active]);
     Epic::factory()->create(['name' => 'Paused Epic', 'status' => EpicStatus::Paused]);
     Epic::factory()->create(['name' => 'Archived Epic', 'status' => EpicStatus::Archived]);
 
     Livewire::test('pages::epics.index')
+        ->assertSee('New Epic')
         ->assertSee('Active Epic')
         ->assertDontSee('Paused Epic')
         ->assertDontSee('Archived Epic');
@@ -29,12 +31,14 @@ test('epics index shows only active epics by default', function () {
 // ── Clear filter ──────────────────────────────────────────────────────────────
 
 test('clearing the filter shows epics of every status', function () {
+    Epic::factory()->create(['name' => 'New Epic', 'status' => EpicStatus::New]);
     Epic::factory()->create(['name' => 'Active Epic', 'status' => EpicStatus::Active]);
     Epic::factory()->create(['name' => 'Paused Epic', 'status' => EpicStatus::Paused]);
     Epic::factory()->create(['name' => 'Archived Epic', 'status' => EpicStatus::Archived]);
 
     Livewire::test('pages::epics.index')
         ->set('filterStatuses', [])
+        ->assertSee('New Epic')
         ->assertSee('Active Epic')
         ->assertSee('Paused Epic')
         ->assertSee('Archived Epic');
@@ -90,13 +94,24 @@ test('a returning user who last cleared the filter sees all epics again', functi
         ->assertSee('Paused Epic');
 });
 
-test('a user with no saved preference yet gets the active-only default', function () {
+test('a user with no saved preference yet gets the new-and-active default', function () {
+    Epic::factory()->create(['name' => 'New Epic', 'status' => EpicStatus::New]);
     Epic::factory()->create(['name' => 'Active Epic', 'status' => EpicStatus::Active]);
     Epic::factory()->create(['name' => 'Paused Epic', 'status' => EpicStatus::Paused]);
 
     expect($this->user->fresh()->preferences)->toBeNull();
 
     Livewire::test('pages::epics.index')
+        ->assertSee('New Epic')
         ->assertSee('Active Epic')
         ->assertDontSee('Paused Epic');
+});
+
+test('a newly created epic is visible in the default view without changing any filter', function () {
+    Livewire::test('pages::epics.index')
+        ->set('name', 'Fresh Epic')
+        ->call('createEpic');
+
+    Livewire::test('pages::epics.index')
+        ->assertSee('Fresh Epic');
 });

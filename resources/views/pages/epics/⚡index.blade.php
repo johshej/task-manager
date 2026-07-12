@@ -50,7 +50,7 @@ new #[Title('Epics')] class extends Component {
         $this->aiMode = self::defaultAiMode();
 
         $prefs = auth()->user()?->preferences ?? [];
-        $this->filterStatuses = $prefs['epics_filter_statuses'] ?? [EpicStatus::Active->value];
+        $this->filterStatuses = $prefs['epics_filter_statuses'] ?? [EpicStatus::New->value, EpicStatus::Active->value];
     }
 
     public function updatedFilterStatuses(): void
@@ -89,7 +89,7 @@ new #[Title('Epics')] class extends Component {
             'name' => $this->name,
             'description' => $this->description ?: null,
             'repository_url' => $this->repositoryUrl ?: null,
-            'status' => EpicStatus::Active,
+            'status' => EpicStatus::New,
             'tdd' => $this->tddNullable($this->tdd),
             'ai_mode' => $this->aiMode ?: null,
             'environment' => $this->environment ?: null,
