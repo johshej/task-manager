@@ -37,6 +37,7 @@
           <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Epics list</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select epic</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Move epic</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open board</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit selected</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> &nbsp; New epic</div>
@@ -181,7 +182,7 @@
 
   // ── Queue reorder ─────────────────────────────────────────────────────────
 
-  let pendingQueueActiveId = null;
+  let pendingReorderActiveId = null;
 
   function moveQueueItem(delta) {
     const active = currentActive();
@@ -193,8 +194,24 @@
     if (currentIndex < 0) return;
     const newIndex = Math.max(0, Math.min(items.length - 1, currentIndex + delta));
     if (newIndex === currentIndex) return;
-    pendingQueueActiveId = itemId;
+    pendingReorderActiveId = itemId;
     window.dispatchEvent(new CustomEvent('queue-reorder', { detail: { itemId, position: newIndex } }));
+  }
+
+  // ── Epics list reorder ────────────────────────────────────────────────────
+
+  function moveEpicItem(delta) {
+    const active = currentActive();
+    if (!active) return;
+    const itemId = active.getAttribute('wire:sort:item');
+    if (!itemId) return;
+    const items = Array.from(document.querySelectorAll('[data-selectable]'));
+    const currentIndex = items.indexOf(active);
+    if (currentIndex < 0) return;
+    const newIndex = Math.max(0, Math.min(items.length - 1, currentIndex + delta));
+    if (newIndex === currentIndex) return;
+    pendingReorderActiveId = itemId;
+    window.dispatchEvent(new CustomEvent('epic-reorder', { detail: { itemId, position: newIndex } }));
   }
 
   // ── Board reorder ─────────────────────────────────────────────────────────
@@ -315,8 +332,14 @@
     const view = getView();
 
     if (view === 'epics-index') {
-      if (e.key === 'ArrowUp') { e.preventDefault(); handled = true; moveSelection(-1); }
-      if (e.key === 'ArrowDown') { e.preventDefault(); handled = true; moveSelection(1); }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault(); handled = true;
+        if (e.shiftKey) moveEpicItem(-1); else moveSelection(-1);
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault(); handled = true;
+        if (e.shiftKey) moveEpicItem(1); else moveSelection(1);
+      }
       if (e.key === 'Enter') {
         e.preventDefault(); handled = true;
         const a = currentActive();
@@ -410,11 +433,12 @@
       return;
     }
 
-    if (handlePerView(e)) return;
-
-    // Sequences: second key
+    // Sequences: second key — checked before per-view handlers so "g" then "e"/"s"
+    // always navigates, even on views where "e" is also a per-view shortcut (e.g. edit).
     if (seq === 'g' && e.key === 'e') { e.preventDefault(); if (routes.epics) goto(routes.epics); resetSeq(); return; }
     if (seq === 'g' && e.key === 's') { e.preventDefault(); if (routes.settings) goto(routes.settings); resetSeq(); return; }
+
+    if (handlePerView(e)) return;
 
     // Sequences: first key
     if (e.key === 'g') {
@@ -435,9 +459,9 @@
   }
 
   document.addEventListener('livewire:updated', function () {
-    if (!pendingQueueActiveId) return;
-    const id = pendingQueueActiveId;
-    pendingQueueActiveId = null;
+    if (!pendingReorderActiveId) return;
+    const id = pendingReorderActiveId;
+    pendingReorderActiveId = null;
     setTimeout(function () {
       const el = Array.from(document.querySelectorAll('[data-selectable]'))
         .find(function (n) { return n.getAttribute('wire:sort:item') === id; });

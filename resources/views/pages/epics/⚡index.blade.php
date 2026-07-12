@@ -90,6 +90,7 @@ new #[Title('Epics')] class extends Component {
             'description' => $this->description ?: null,
             'repository_url' => $this->repositoryUrl ?: null,
             'status' => EpicStatus::New,
+            'order_index' => Epic::count(),
             'tdd' => $this->tddNullable($this->tdd),
             'ai_mode' => $this->aiMode ?: null,
             'environment' => $this->environment ?: null,
@@ -115,13 +116,29 @@ new #[Title('Epics')] class extends Component {
         Flux::toast(variant: 'success', text: 'Epic deleted.');
     }
 
+    public function sortEpics(string $epicId, int $position): void
+    {
+        $ids = Epic::where('id', '!=', $epicId)
+            ->orderBy('order_index')
+            ->pluck('id')
+            ->toArray();
+
+        array_splice($ids, $position, 0, [$epicId]);
+
+        foreach ($ids as $idx => $id) {
+            Epic::where('id', $id)->update(['order_index' => $idx]);
+        }
+
+        unset($this->epics);
+    }
+
     /** @return Collection<int, Epic> */
     #[Computed]
     public function epics(): Collection
     {
         return Epic::withCount('features')
             ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
-            ->latest()
+            ->orderBy('order_index')
             ->get();
     }
 }; ?>
@@ -177,20 +194,31 @@ new #[Title('Epics')] class extends Component {
             </div>
         @endif
 
-        <div class="space-y-3" data-list="epics">
+        <div class="space-y-3" data-list="epics" wire:sort="sortEpics" x-on:epic-reorder.window="$wire.sortEpics($event.detail.itemId, $event.detail.position)">
             @forelse ($this->epics as $epic)
                 <div
+                    wire:key="epic-{{ $epic->id }}"
+                    wire:sort:item="{{ $epic->id }}"
                     data-selectable
                     data-href="{{ route('epics.board', $epic) }}"
                     class="flex flex-col rounded-xl border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
                 >
                     {{-- Line 1: title + buttons --}}
                     <div class="flex items-start justify-between gap-2">
-                        <a
-                            href="{{ route('epics.board', $epic) }}"
-                            wire:navigate
-                            class="font-semibold hover:text-blue-600 dark:hover:text-blue-400"
-                        >{{ $epic->name }}</a>
+                        <div class="flex items-center gap-2">
+                            <div wire:sort:handle class="shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
+                                <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
+                                    <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
+                                    <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                                    <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+                                </svg>
+                            </div>
+                            <a
+                                href="{{ route('epics.board', $epic) }}"
+                                wire:navigate
+                                class="font-semibold hover:text-blue-600 dark:hover:text-blue-400"
+                            >{{ $epic->name }}</a>
+                        </div>
                         <div class="flex shrink-0 items-center gap-1">
                             <flux:tooltip :content="__('Edit')">
                                 <flux:button

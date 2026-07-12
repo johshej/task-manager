@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[ObservedBy(EpicObserver::class)]
-#[Fillable(['name', 'description', 'repository_url', 'status', 'tdd', 'ai_mode', 'environment'])]
+#[Fillable(['name', 'description', 'repository_url', 'status', 'order_index', 'tdd', 'ai_mode', 'environment'])]
 class Epic extends Model
 {
     /** @use HasFactory<EpicFactory> */
