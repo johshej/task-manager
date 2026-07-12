@@ -22,6 +22,9 @@ class UpdateEpicRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'repository_url' => ['sometimes', 'nullable', 'regex:/^(https?:\/\/\S+|git@[^:]+:\S+)$/', 'max:500'],
             'status' => ['sometimes', Rule::enum(EpicStatus::class)],
+            'tdd' => ['nullable', 'boolean'],
+            'ai_mode' => ['nullable', 'string'],
+            'environment' => ['nullable', 'string', 'max:100'],
         ];
     }
 }

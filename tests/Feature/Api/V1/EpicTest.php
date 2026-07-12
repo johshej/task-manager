@@ -66,6 +66,28 @@ test('can update an epic', function () {
     $this->assertDatabaseHas('epics', ['id' => $epic->id, 'name' => 'Updated']);
 });
 
+test('can update an epic ai_mode, tdd, and environment', function () {
+    $epic = Epic::factory()->create();
+
+    $this->withToken($this->token)
+        ->putJson("/api/v1/epics/{$epic->id}", [
+            'ai_mode' => 'Updated AI instructions',
+            'tdd' => true,
+            'environment' => 'Production',
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.ai_mode', 'Updated AI instructions')
+        ->assertJsonPath('data.tdd', true)
+        ->assertJsonPath('data.environment', 'Production');
+
+    $this->assertDatabaseHas('epics', [
+        'id' => $epic->id,
+        'ai_mode' => 'Updated AI instructions',
+        'tdd' => true,
+        'environment' => 'Production',
+    ]);
+});
+
 test('can delete an epic', function () {
     $epic = Epic::factory()->create();
 
