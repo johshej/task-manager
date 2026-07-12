@@ -106,7 +106,7 @@ new #[Title('Epic Board')] class extends Component {
         $this->highlightedId = session('highlighted_id');
 
         $prefs = auth()->user()?->preferences ?? [];
-        $this->filterStatuses = $prefs['filter_statuses'] ?? [];
+        $this->filterStatuses = $prefs['filter_statuses'][$this->viewMode] ?? [];
         $this->collapsedFeatureIds = $prefs['collapsed_feature_ids'][$this->epic->id] ?? [];
     }
 
@@ -117,11 +117,9 @@ new #[Title('Epic Board')] class extends Component {
             return;
         }
 
-        $user->update([
-            'preferences' => array_merge($user->preferences ?? [], [
-                'filter_statuses' => $this->filterStatuses,
-            ]),
-        ]);
+        $prefs = $user->preferences ?? [];
+        $prefs['filter_statuses'][$this->viewMode] = $this->filterStatuses;
+        $user->update(['preferences' => $prefs]);
     }
 
     #[Renderless]

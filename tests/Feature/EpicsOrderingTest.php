@@ -34,6 +34,15 @@ test('sortEpics reorders epics', function () {
     expect($epicB->fresh()->order_index)->toBe(2);
 });
 
+test('sortEpics dispatches epic-sorted so the moved epic stays selected', function () {
+    $epicA = Epic::factory()->create(['status' => EpicStatus::Active, 'order_index' => 0]);
+    $epicB = Epic::factory()->create(['status' => EpicStatus::Active, 'order_index' => 1]);
+
+    Livewire::test('pages::epics.index')
+        ->call('sortEpics', $epicB->id, 0)
+        ->assertDispatched('epic-sorted', id: $epicB->id);
+});
+
 test('a newly created epic is appended at the end of the manual order', function () {
     Epic::factory()->create(['status' => EpicStatus::Active, 'order_index' => 0]);
     Epic::factory()->create(['status' => EpicStatus::Active, 'order_index' => 1]);

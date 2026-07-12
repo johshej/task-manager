@@ -633,11 +633,11 @@ test('filter status preference is saved when filter changes', function () {
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->set('filterStatuses', [TaskStatus::Done->value]);
 
-    expect($this->user->fresh()->preferences['filter_statuses'])->toBe([TaskStatus::Done->value]);
+    expect($this->user->fresh()->preferences['filter_statuses']['board'])->toBe([TaskStatus::Done->value]);
 });
 
 test('filter preferences are loaded from user on mount', function () {
-    $this->user->update(['preferences' => ['filter_statuses' => [TaskStatus::Done->value]]]);
+    $this->user->update(['preferences' => ['filter_statuses' => ['board' => [TaskStatus::Done->value]]]]);
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();
     Task::factory()->for($feature)->create(['title' => 'Todo Task', 'status' => TaskStatus::Todo]);
@@ -649,13 +649,43 @@ test('filter preferences are loaded from user on mount', function () {
 });
 
 test('clearing filter saves empty preference', function () {
-    $this->user->update(['preferences' => ['filter_statuses' => [TaskStatus::Done->value]]]);
+    $this->user->update(['preferences' => ['filter_statuses' => ['board' => [TaskStatus::Done->value]]]]);
     $epic = Epic::factory()->create();
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->set('filterStatuses', []);
 
-    expect($this->user->fresh()->preferences['filter_statuses'])->toBe([]);
+    expect($this->user->fresh()->preferences['filter_statuses']['board'])->toBe([]);
+});
+
+test('board and kanban views have independent filter preferences', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['title' => 'Todo Task', 'status' => TaskStatus::Todo]);
+    Task::factory()->for($feature)->create(['title' => 'Done Task', 'status' => TaskStatus::Done]);
+
+    $this->user->update(['preferences' => [
+        'filter_statuses' => ['board' => [TaskStatus::Done->value]],
+    ]]);
+
+    $this->get(route('epics.board', $epic))
+        ->assertSee('Done Task')
+        ->assertDontSee('Todo Task');
+
+    $this->get(route('epics.board.kanban', $epic))
+        ->assertSee('Todo Task')
+        ->assertSee('Done Task');
+});
+
+test('setting a filter on kanban does not affect the board filter preference', function () {
+    $epic = Epic::factory()->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban')
+        ->set('filterStatuses', [TaskStatus::Done->value]);
+
+    expect($this->user->fresh()->preferences['filter_statuses'])
+        ->toBe(['kanban' => [TaskStatus::Done->value]]);
 });
 
 test('board shows AI badge for AI-changed tasks', function () {

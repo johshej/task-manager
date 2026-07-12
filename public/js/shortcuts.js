@@ -114,6 +114,13 @@
     if (items.length) setActive(items[0]);
   }
 
+  // Clicking a feature/task/epic row also selects it, so keyboard nav
+  // (arrows, Shift+arrows, Enter) continues from wherever the mouse last clicked.
+  document.addEventListener('click', function (e) {
+    const el = e.target.closest('[data-selectable]');
+    if (el) setActive(el);
+  });
+
   // ── View helpers ──────────────────────────────────────────────────────────
 
   function getView() {
@@ -210,7 +217,6 @@
     if (currentIndex < 0) return;
     const newIndex = Math.max(0, Math.min(items.length - 1, currentIndex + delta));
     if (newIndex === currentIndex) return;
-    pendingReorderActiveId = itemId;
     window.dispatchEvent(new CustomEvent('epic-reorder', { detail: { itemId, position: newIndex } }));
   }
 
@@ -278,6 +284,15 @@
       } else {
         el = document.querySelector('[data-feature-id="' + id + '"]');
       }
+      if (el) setActive(el);
+    }, 0);
+  });
+
+  document.addEventListener('epic-sorted', function (e) {
+    const { id } = e.detail;
+    setTimeout(function () {
+      const el = Array.from(document.querySelectorAll('[data-selectable]'))
+        .find(function (n) { return n.getAttribute('wire:sort:item') === id; });
       if (el) setActive(el);
     }, 0);
   });

@@ -99,3 +99,32 @@ test('epics list only shows active epics until the filter is opened and cleared'
         ->assertSee('Paused Epic')
         ->assertNoJavaScriptErrors();
 });
+
+test('clicking an epic card selects it for keyboard navigation', function () {
+    Epic::factory()->create(['name' => 'Alpha Epic', 'status' => EpicStatus::Active]);
+    Epic::factory()->create(['name' => 'Beta Epic', 'status' => EpicStatus::Active]);
+
+    $page = visit(route('epics'));
+
+    $page->assertNoJavaScriptErrors()
+        ->click('Beta Epic');
+
+    $activeText = $page->script("document.querySelector('[data-selectable].active')?.textContent || ''");
+    expect($activeText)->toContain('Beta Epic');
+});
+
+test('moving an epic with Shift+ArrowDown keeps it selected', function () {
+    Epic::factory()->create(['name' => 'First Epic', 'status' => EpicStatus::Active, 'order_index' => 0]);
+    Epic::factory()->create(['name' => 'Second Epic', 'status' => EpicStatus::Active, 'order_index' => 1]);
+
+    $page = visit(route('epics'));
+
+    $page->assertNoJavaScriptErrors()
+        ->click('First Epic')
+        ->keys('body', ['{Shift}', 'ArrowDown'])
+        ->wait(0.5)
+        ->assertSeeInOrder(['Second Epic', 'First Epic']);
+
+    $activeText = $page->script("document.querySelector('[data-selectable].active')?.textContent || ''");
+    expect($activeText)->toContain('First Epic');
+});

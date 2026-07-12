@@ -130,6 +130,7 @@ new #[Title('Epics')] class extends Component {
         }
 
         unset($this->epics);
+        $this->dispatch('epic-sorted', id: $epicId);
     }
 
     /** @return Collection<int, Epic> */
