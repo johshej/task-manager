@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EpicStatus;
 use App\Models\Epic;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -37,7 +38,7 @@ test('create epic modal is gone after submission', function () {
 });
 
 test('can edit an epic', function () {
-    Epic::factory()->create(['name' => 'Original Name']);
+    Epic::factory()->create(['name' => 'Original Name', 'status' => EpicStatus::Active]);
 
     $page = visit(route('epics'));
 
@@ -53,7 +54,7 @@ test('can edit an epic', function () {
 });
 
 test('can delete an epic', function () {
-    Epic::factory()->create(['name' => 'Delete Me']);
+    Epic::factory()->create(['name' => 'Delete Me', 'status' => EpicStatus::Active]);
 
     $page = visit(route('epics'));
 
@@ -70,7 +71,7 @@ test('can delete an epic', function () {
 });
 
 test('delete requires confirmation before removing epic', function () {
-    Epic::factory()->create(['name' => 'Safe Epic']);
+    Epic::factory()->create(['name' => 'Safe Epic', 'status' => EpicStatus::Active]);
 
     $page = visit(route('epics'));
 
@@ -80,4 +81,21 @@ test('delete requires confirmation before removing epic', function () {
         ->assertSee('Safe Epic');
 
     expect(Epic::where('name', 'Safe Epic')->exists())->toBeTrue();
+});
+
+test('epics list only shows active epics until the filter is opened and cleared', function () {
+    Epic::factory()->create(['name' => 'Active Epic', 'status' => EpicStatus::Active]);
+    Epic::factory()->create(['name' => 'Paused Epic', 'status' => EpicStatus::Paused]);
+
+    $page = visit(route('epics'));
+
+    $page->assertSee('Active Epic')
+        ->assertDontSee('Paused Epic')
+        ->assertNoJavaScriptErrors()
+        ->click('Filter')
+        ->assertSee('Paused')
+        ->click('Clear filters')
+        ->assertSee('Active Epic')
+        ->assertSee('Paused Epic')
+        ->assertNoJavaScriptErrors();
 });

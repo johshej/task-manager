@@ -40,6 +40,7 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open board</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit selected</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> &nbsp; New epic</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">f</kbd> &nbsp; Toggle filters</div>
           </div>
           <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Epic board</div>
@@ -327,6 +328,10 @@
         if (a) { const btn = a.querySelector('[data-edit-btn]'); if (btn) btn.click(); }
       }
       if (e.key === 'n') { e.preventDefault(); handled = true; shortcut('new-epic'); }
+      if (e.key === 'f') {
+        e.preventDefault(); handled = true;
+        if (isFilterOpen()) { closeFilter(); } else { openFilter(); }
+      }
     }
 
     if (view === 'epic-board') {
@@ -381,7 +386,7 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     // Filter panel intercepts arrows/escape/f before isTyping check
-    if (getView() === 'epic-board' && isFilterOpen()) {
+    if (isFilterOpen()) {
       if (e.key === 'ArrowDown') { e.preventDefault(); moveFilterFocus(1); return; }
       if (e.key === 'ArrowUp')   { e.preventDefault(); moveFilterFocus(-1); return; }
       if (e.key === 'Escape')    { e.preventDefault(); closeFilter(); return; }

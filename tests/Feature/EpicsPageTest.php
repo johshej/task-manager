@@ -36,6 +36,7 @@ test('epics index lists epics', function () {
     Epic::factory()->create(['name' => 'Beta Epic', 'status' => EpicStatus::Paused]);
 
     Livewire::test('pages::epics.index')
+        ->set('filterStatuses', [])
         ->assertSee('Alpha Epic')
         ->assertSee('Beta Epic');
 });
@@ -84,14 +85,14 @@ test('can edit an epic', function () {
 });
 
 test('epic index renders edit button linking to edit route', function () {
-    $epic = Epic::factory()->create(['name' => 'Test Epic']);
+    $epic = Epic::factory()->create(['name' => 'Test Epic', 'status' => EpicStatus::Active]);
 
     Livewire::test('pages::epics.index')
         ->assertSeeHtml(route('epics.board.edit', $epic));
 });
 
 test('epic index renders delete button with quoted uuid', function () {
-    $epic = Epic::factory()->create(['name' => 'Test Epic']);
+    $epic = Epic::factory()->create(['name' => 'Test Epic', 'status' => EpicStatus::Active]);
 
     Livewire::test('pages::epics.index')
         ->assertSeeHtml("confirmDeleteEpic('{$epic->id}')");
@@ -241,6 +242,7 @@ test('invalid repository URL is rejected on edit', function () {
 test('repository URL is displayed on the epics list', function () {
     Epic::factory()->create([
         'name' => 'Linked Epic',
+        'status' => EpicStatus::Active,
         'repository_url' => 'git@github.com:johshej/my-repo.git',
     ]);
 

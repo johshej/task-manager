@@ -16,6 +16,8 @@ new #[Title('Epics')] class extends Component {
     public string $tdd = '';
     public string $aiMode = '';
     public string $environment = '';
+    public array $filterStatuses = [];
+    public bool $showFilters = false;
 
     private static function defaultAiMode(): string
     {
@@ -46,6 +48,23 @@ new #[Title('Epics')] class extends Component {
     public function mount(): void
     {
         $this->aiMode = self::defaultAiMode();
+
+        $prefs = auth()->user()?->preferences ?? [];
+        $this->filterStatuses = $prefs['epics_filter_statuses'] ?? [EpicStatus::Active->value];
+    }
+
+    public function updatedFilterStatuses(): void
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return;
+        }
+
+        $user->update([
+            'preferences' => array_merge($user->preferences ?? [], [
+                'epics_filter_statuses' => $this->filterStatuses,
+            ]),
+        ]);
     }
 
     public ?string $deletingEpicId = null;
@@ -100,7 +119,10 @@ new #[Title('Epics')] class extends Component {
     #[Computed]
     public function epics(): Collection
     {
-        return Epic::withCount('features')->latest()->get();
+        return Epic::withCount('features')
+            ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
+            ->latest()
+            ->get();
     }
 }; ?>
 
@@ -110,10 +132,50 @@ new #[Title('Epics')] class extends Component {
                 <flux:heading size="xl">{{ __('Epics') }}</flux:heading>
                 <flux:subheading>{{ __('High-level bodies of work broken into features and tasks.') }}</flux:subheading>
             </div>
-            <flux:modal.trigger name="create-epic" data-shortcut="new-epic">
-                <flux:button variant="primary" icon="plus">{{ __('New epic') }}</flux:button>
-            </flux:modal.trigger>
+            <div class="flex items-center gap-2">
+                <flux:tooltip content="F">
+                    <flux:button
+                        variant="{{ $showFilters ? 'filled' : 'ghost' }}"
+                        size="sm"
+                        icon="funnel"
+                        data-shortcut="toggle-filters"
+                        wire:click="$toggle('showFilters')"
+                    >
+                        {{ __('Filter') }}
+                        @if (count($filterStatuses) > 0)
+                            <flux:badge color="blue" size="sm" class="ml-1">{{ count($filterStatuses) }}</flux:badge>
+                        @endif
+                    </flux:button>
+                </flux:tooltip>
+                <flux:modal.trigger name="create-epic" data-shortcut="new-epic">
+                    <flux:button variant="primary" icon="plus">{{ __('New epic') }}</flux:button>
+                </flux:modal.trigger>
+            </div>
         </div>
+
+        {{-- Filter panel --}}
+        @if ($showFilters)
+            <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" data-filter-panel>
+                <div class="space-y-1.5">
+                    @foreach (EpicStatus::cases() as $s)
+                        <label class="flex cursor-pointer items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                wire:model.live="filterStatuses"
+                                value="{{ $s->value }}"
+                                class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600"
+                            >
+                            <flux:badge color="{{ $s->color() }}" size="sm">{{ $s->label() }}</flux:badge>
+                        </label>
+                    @endforeach
+                </div>
+                <div class="mt-3 flex justify-end">
+                    <flux:button variant="ghost" size="sm" wire:click="$set('filterStatuses', [])" :disabled="count($filterStatuses) === 0">
+                        {{ __('Clear filters') }}
+                    </flux:button>
+                </div>
+            </div>
+        @endif
 
         <div class="space-y-3" data-list="epics">
             @forelse ($this->epics as $epic)
