@@ -215,7 +215,7 @@ new #[Title('Epic Board')] class extends Component {
             'newFeatureEnvironment' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $this->epic->features()->create([
+        $feature = $this->epic->features()->create([
             'name' => $this->newFeatureName,
             'status' => FeatureStatus::Todo,
             'order_index' => $this->epic->features()->count(),
@@ -228,6 +228,8 @@ new #[Title('Epic Board')] class extends Component {
         $this->modal('create-feature')->close();
         unset($this->features, $this->allFeatures);
         Flux::toast(variant: 'success', text: 'Feature created.');
+        session()->flash('highlighted_id', $feature->id);
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     public function openEditFeature(string $featureId): void
@@ -311,7 +313,7 @@ new #[Title('Epic Board')] class extends Component {
 
         $feature = Feature::findOrFail($this->addingTaskForFeatureId);
 
-        $feature->tasks()->create([
+        $task = $feature->tasks()->create([
             'title' => $this->newTaskTitle,
             'description' => $this->newTaskDescription ?: null,
             'status' => TaskStatus::Todo,
@@ -327,6 +329,8 @@ new #[Title('Epic Board')] class extends Component {
         $this->modal('create-task')->close();
         unset($this->features, $this->kanbanColumns);
         Flux::toast(variant: 'success', text: 'Task created.');
+        session()->flash('highlighted_id', $task->id);
+        $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
     public function openTask(string $taskId): void

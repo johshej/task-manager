@@ -827,6 +827,32 @@ test('deleteTask selects feature when no sibling tasks remain', function () {
     expect(session('highlighted_id'))->toBe($feature->id);
 });
 
+test('createFeature selects the newly created feature', function () {
+    $epic = Epic::factory()->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('newFeatureName', 'Fresh Feature')
+        ->call('createFeature')
+        ->assertRedirect(route('epics.board', $epic));
+
+    $feature = Feature::where('name', 'Fresh Feature')->firstOrFail();
+    expect(session('highlighted_id'))->toBe($feature->id);
+});
+
+test('createTask selects the newly created task', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openAddTask', $feature->id)
+        ->set('newTaskTitle', 'Fresh Task')
+        ->call('createTask')
+        ->assertRedirect(route('epics.board', $epic));
+
+    $task = Task::where('title', 'Fresh Task')->firstOrFail();
+    expect(session('highlighted_id'))->toBe($task->id);
+});
+
 // ── Feature collapse persistence ──────────────────────────────────────────────
 
 test('saveFeatureCollapse stores collapsed state in user preferences', function () {
