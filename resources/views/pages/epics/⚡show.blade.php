@@ -501,6 +501,18 @@ new #[Title('Epic Board')] class extends Component {
         $this->dispatch('board-sorted', id: $taskId, type: 'task');
     }
 
+    public function moveTaskToTop(string $taskId): void
+    {
+        $this->sortBoard($taskId, 0);
+    }
+
+    public function moveTaskToBottom(string $taskId): void
+    {
+        $featureId = Task::findOrFail($taskId)->feature_id;
+
+        $this->sortBoard($taskId, Task::where('feature_id', $featureId)->count());
+    }
+
     public function sortBoardFeature(string $featureId, int $position): void
     {
         $ids = Feature::where('epic_id', $this->epic->id)
@@ -836,6 +848,7 @@ new #[Title('Epic Board')] class extends Component {
     @if ($viewMode === 'board')
         <div class="space-y-6" data-board-mode="board"
              wire:sort="sortBoardFeature"
+             wire:sort:config="{ delay: 200, delayOnTouchOnly: true }"
              x-on:board-task-reorder.window="$wire.sortBoard($event.detail.taskId, $event.detail.position)"
              x-on:board-feature-reorder.window="$wire.sortBoardFeature($event.detail.featureId, $event.detail.position)"
              x-on:board-delete-feature.window="$wire.confirmDeleteFeature($event.detail.featureId)"
@@ -863,13 +876,13 @@ new #[Title('Epic Board')] class extends Component {
                         <div class="flex items-center justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-1.5">
                                 <flux:dropdown>
-                                    <div wire:sort:handle class="shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
+                                    <button type="button" wire:sort:handle class="block shrink-0 cursor-grab appearance-none border-0 bg-transparent p-0 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
                                         <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
                                             <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
                                             <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
                                             <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
                                         </svg>
-                                    </div>
+                                    </button>
                                     <flux:menu>
                                         <flux:menu.item icon="chevron-double-up" wire:click="moveFeatureToTop('{{ $feature->id }}')">{{ __('Move to top') }}</flux:menu.item>
                                         <flux:menu.item icon="chevron-double-down" wire:click="moveFeatureToBottom('{{ $feature->id }}')">{{ __('Move to bottom') }}</flux:menu.item>
@@ -932,7 +945,7 @@ new #[Title('Epic Board')] class extends Component {
                             </flux:tooltip>
                         </div>
 
-                        <ul x-show="!collapsed" wire:sort="sortBoard" class="divide-y divide-zinc-100 list-none dark:divide-zinc-800">
+                        <ul x-show="!collapsed" wire:sort="sortBoard" wire:sort:config="{ delay: 200, delayOnTouchOnly: true }" class="divide-y divide-zinc-100 list-none dark:divide-zinc-800">
                             @foreach ($feature->tasks as $task)
                                 <li
                                     wire:key="board-{{ $task->id }}"
@@ -942,13 +955,19 @@ new #[Title('Epic Board')] class extends Component {
                                     @class(['flex items-start', 'bg-blue-50 dark:bg-blue-950/20' => $highlightedId === $task->id])
                                     @if ($highlightedId === $task->id) x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))" @endif
                                 >
-                                    <div wire:sort:handle class="cursor-grab px-3 pt-3 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
-                                        <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
-                                            <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
-                                            <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
-                                            <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
-                                        </svg>
-                                    </div>
+                                    <flux:dropdown>
+                                        <button type="button" wire:sort:handle class="block cursor-grab appearance-none border-0 bg-transparent px-3 pt-3 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
+                                            <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
+                                                <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
+                                                <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                                                <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+                                            </svg>
+                                        </button>
+                                        <flux:menu>
+                                            <flux:menu.item icon="chevron-double-up" wire:click="moveTaskToTop('{{ $task->id }}')">{{ __('Move to top') }}</flux:menu.item>
+                                            <flux:menu.item icon="chevron-double-down" wire:click="moveTaskToBottom('{{ $task->id }}')">{{ __('Move to bottom') }}</flux:menu.item>
+                                        </flux:menu>
+                                    </flux:dropdown>
                                     <a
                                         data-open-btn
                                         wire:navigate
@@ -1019,6 +1038,7 @@ new #[Title('Epic Board')] class extends Component {
                             wire:sort="sortKanban"
                             wire:sort:group="kanban-tasks"
                             wire:sort:group-id="{{ $column['status']->value }}"
+                            wire:sort:config="{ delay: 200, delayOnTouchOnly: true }"
                             class="min-h-16 list-none space-y-2 rounded-xl border border-dashed border-zinc-200 p-2 dark:border-zinc-700"
                         >
                             @foreach ($column['groups'] as $group)

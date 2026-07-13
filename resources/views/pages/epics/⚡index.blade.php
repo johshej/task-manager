@@ -133,6 +133,16 @@ new #[Title('Epics')] class extends Component {
         $this->dispatch('epic-sorted', id: $epicId);
     }
 
+    public function moveEpicToTop(string $epicId): void
+    {
+        $this->sortEpics($epicId, 0);
+    }
+
+    public function moveEpicToBottom(string $epicId): void
+    {
+        $this->sortEpics($epicId, Epic::count());
+    }
+
     /** @return Collection<int, Epic> */
     #[Computed]
     public function epics(): Collection
@@ -195,7 +205,7 @@ new #[Title('Epics')] class extends Component {
             </div>
         @endif
 
-        <div class="space-y-3" data-list="epics" wire:sort="sortEpics" x-on:epic-reorder.window="$wire.sortEpics($event.detail.itemId, $event.detail.position)">
+        <div class="space-y-3" data-list="epics" wire:sort="sortEpics" wire:sort:config="{ delay: 200, delayOnTouchOnly: true }" x-on:epic-reorder.window="$wire.sortEpics($event.detail.itemId, $event.detail.position)">
             @forelse ($this->epics as $epic)
                 <div
                     wire:key="epic-{{ $epic->id }}"
@@ -207,13 +217,19 @@ new #[Title('Epics')] class extends Component {
                     {{-- Line 1: title + buttons --}}
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex items-center gap-2">
-                            <div wire:sort:handle class="shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
-                                <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
-                                    <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
-                                    <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
-                                    <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
-                                </svg>
-                            </div>
+                            <flux:dropdown>
+                                <button type="button" wire:sort:handle class="block shrink-0 cursor-grab appearance-none border-0 bg-transparent p-0 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
+                                    <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
+                                        <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
+                                        <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                                        <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+                                    </svg>
+                                </button>
+                                <flux:menu>
+                                    <flux:menu.item icon="chevron-double-up" wire:click="moveEpicToTop('{{ $epic->id }}')">{{ __('Move to top') }}</flux:menu.item>
+                                    <flux:menu.item icon="chevron-double-down" wire:click="moveEpicToBottom('{{ $epic->id }}')">{{ __('Move to bottom') }}</flux:menu.item>
+                                </flux:menu>
+                            </flux:dropdown>
                             <a
                                 href="{{ route('epics.board', $epic) }}"
                                 wire:navigate

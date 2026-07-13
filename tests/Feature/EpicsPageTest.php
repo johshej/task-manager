@@ -99,6 +99,32 @@ test('epic index renders delete button with quoted uuid', function () {
         ->assertSeeHtml("confirmDeleteEpic('{$epic->id}')");
 });
 
+test('moveEpicToTop moves an epic to position 0', function () {
+    $epicA = Epic::factory()->create(['order_index' => 0]);
+    $epicB = Epic::factory()->create(['order_index' => 1]);
+    $epicC = Epic::factory()->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.index')
+        ->call('moveEpicToTop', $epicC->id);
+
+    expect($epicC->fresh()->order_index)->toBe(0);
+    expect($epicA->fresh()->order_index)->toBe(1);
+    expect($epicB->fresh()->order_index)->toBe(2);
+});
+
+test('moveEpicToBottom moves an epic to the last position', function () {
+    $epicA = Epic::factory()->create(['order_index' => 0]);
+    $epicB = Epic::factory()->create(['order_index' => 1]);
+    $epicC = Epic::factory()->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.index')
+        ->call('moveEpicToBottom', $epicA->id);
+
+    expect($epicB->fresh()->order_index)->toBe(0);
+    expect($epicC->fresh()->order_index)->toBe(1);
+    expect($epicA->fresh()->order_index)->toBe(2);
+});
+
 // ── Epic board ────────────────────────────────────────────────────────────────
 
 test('epic board page renders', function () {
@@ -680,6 +706,50 @@ test('moveFeatureToBottom moves a feature to the last position', function () {
     expect($featureB->fresh()->order_index)->toBe(0);
     expect($featureC->fresh()->order_index)->toBe(1);
     expect($featureA->fresh()->order_index)->toBe(2);
+});
+
+test('moveTaskToTop moves a task to position 0 within its feature', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['order_index' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveTaskToTop', $taskC->id);
+
+    expect($taskC->fresh()->order_index)->toBe(0);
+    expect($taskA->fresh()->order_index)->toBe(1);
+    expect($taskB->fresh()->order_index)->toBe(2);
+});
+
+test('moveTaskToBottom moves a task to the last position within its feature', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['order_index' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveTaskToBottom', $taskA->id);
+
+    expect($taskB->fresh()->order_index)->toBe(0);
+    expect($taskC->fresh()->order_index)->toBe(1);
+    expect($taskA->fresh()->order_index)->toBe(2);
+});
+
+test('moveTaskToBottom does not affect tasks in other features', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create();
+    $featureB = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($featureA)->create(['order_index' => 0]);
+    $otherTask = Task::factory()->for($featureB)->create(['order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveTaskToBottom', $taskA->id);
+
+    expect($taskA->fresh()->order_index)->toBe(0);
+    expect($otherTask->fresh()->order_index)->toBe(0);
 });
 
 test('sortBoard does not affect tasks in other features', function () {
