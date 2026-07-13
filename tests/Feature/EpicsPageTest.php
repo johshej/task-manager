@@ -1096,3 +1096,56 @@ test('board feature add-task button is markable for the contextual + shortcut', 
 
     expect($html)->toContain('data-add-task-btn="data-add-task-btn" wire:click="openAddTask(\''.$feature->id.'\')"');
 });
+
+// ── Full-screen create/edit modals ──────────────────────────────────────────────
+
+test('create-feature and create-task modals are full screen', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])->html();
+
+    // All 5 modals (edit-epic, edit-feature, task-detail, create-feature, create-task)
+    // should be modal-fullscreen; the old narrow create-feature/create-task class must be gone.
+    expect(substr_count($html, 'modal-fullscreen'))->toBe(5)
+        ->and($html)->not->toContain('md:w-[520px]');
+});
+
+// ── AI mode and notes as full-screen links, side by side ───────────────────────
+
+test('epic and feature forms expose AI mode and notes as side-by-side full-screen links', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditFeature', $feature->id)
+        ->html();
+
+    // epic + feature each render one AI-mode link and one notes link, always
+    // (regardless of which modal is actually open), each in its own
+    // data-fullscreen-overlay div (which shortcuts.js's global Escape handler
+    // must not navigate away from). The old cramped mobile-only markup and the
+    // desktop-only side panel must be gone.
+    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(4)
+        ->and($html)->toContain('wire:model="editFeatureAiMode"')
+        ->toContain('wire:model="editEpicAiMode"')
+        ->not->toContain('x-data="{ notesOpen: false }"')
+        ->not->toContain('border-l border-zinc-200 pl-8');
+});
+
+test('task form exposes AI mode and notes as side-by-side full-screen links', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create();
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->html();
+
+    // +1 AI-mode link, +1 notes link, +1 for the pre-existing description
+    // overlay - all only rendered once a task is selected.
+    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(7)
+        ->and($html)->toContain('wire:model="editTaskAiMode"')
+        ->not->toContain('aiOpen:')
+        ->not->toContain('x-data="{ notesOpen: false }"');
+});

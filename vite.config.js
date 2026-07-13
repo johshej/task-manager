@@ -15,6 +15,9 @@ export default defineConfig({
     server: {
         host: '0.0.0.0',
         cors: true,
+        hmr: {
+            host: 'x1.tailf667bc.ts.net',
+        },
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },

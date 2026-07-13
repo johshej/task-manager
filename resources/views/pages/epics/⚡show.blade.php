@@ -1081,351 +1081,210 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- Edit Epic Modal --}}
     <flux:modal name="edit-epic" focusable class="modal-fullscreen" x-on:close="$wire.closeEditEpic()">
-        <div class="flex h-full flex-col">
+        <div class="mx-auto flex h-full w-full max-w-lg flex-col overflow-y-auto">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit epic') }}</flux:heading>
 
-            <div class="flex min-h-0 flex-1 gap-8">
-                {{-- Form --}}
-                <div class="flex w-full flex-col overflow-y-auto md:w-96 md:shrink-0">
-                    <form wire:submit="updateEpic" id="edit-epic-form" class="flex-1 space-y-5"
-                        @keydown.ctrl.enter.prevent="$wire.updateEpic()"
-                        @keydown.meta.enter.prevent="$wire.updateEpic()"
-                    >
-                        <flux:input wire:model="editEpicName" :label="__('Name')" autofocus required />
-                        <flux:textarea wire:model="editEpicDescription" :label="__('Description (optional)')" rows="3" />
-                        <flux:input wire:model="editEpicRepositoryUrl" :label="__('Repository URL (optional)')" type="text" placeholder="https://github.com/org/repo or git@github.com:org/repo.git" />
+            <form wire:submit="updateEpic" id="edit-epic-form" class="flex-1 space-y-5"
+                @keydown.ctrl.enter.prevent="$wire.updateEpic()"
+                @keydown.meta.enter.prevent="$wire.updateEpic()"
+            >
+                <flux:input wire:model="editEpicName" :label="__('Name')" autofocus required />
+                <flux:textarea wire:model="editEpicDescription" :label="__('Description (optional)')" rows="3" />
+                <flux:input wire:model="editEpicRepositoryUrl" :label="__('Repository URL (optional)')" type="text" placeholder="https://github.com/org/repo or git@github.com:org/repo.git" />
 
-                        <flux:select wire:model="editEpicStatus" :label="__('Status')">
-                            @foreach (EpicStatus::cases() as $status)
-                                <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
+                <flux:select wire:model="editEpicStatus" :label="__('Status')">
+                    @foreach (EpicStatus::cases() as $status)
+                        <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
+                    @endforeach
+                </flux:select>
 
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <flux:select wire:model="editEpicTdd" :label="__('TDD')">
-                                <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
-                                <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
-                                <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
-                            </flux:select>
-                            <flux:select wire:model="editEpicEnvironment" :label="__('Environment')">
-                                <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
-                                <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
-                                <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
-                                <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
-                                <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
-                            </flux:select>
-                        </div>
-
-                        <flux:textarea wire:model="editEpicAiMode" :label="__('AI mode (optional)')" rows="2" placeholder="{{ __('Describe how AI should behave for this epic...') }}" />
-                    </form>
-
-                    <div class="mt-5 flex shrink-0 justify-end gap-2">
-                        <flux:button variant="filled" wire:click="closeEditEpic">{{ __('Cancel') }}</flux:button>
-                        <flux:tooltip content="Ctrl+Enter">
-                            <flux:button variant="primary" form="edit-epic-form" type="submit">{{ __('Save changes') }}</flux:button>
-                        </flux:tooltip>
-                    </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <flux:select wire:model="editEpicTdd" :label="__('TDD')">
+                        <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
+                        <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
+                        <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
+                    </flux:select>
+                    <flux:select wire:model="editEpicEnvironment" :label="__('Environment')">
+                        <flux:select.option value="">{{ __('Inherit') }}</flux:select.option>
+                        <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
+                        <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
+                        <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
+                        <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                    </flux:select>
                 </div>
 
-                {{-- Conversation thread --}}
-                <div class="hidden min-h-0 flex-1 flex-col border-l border-zinc-200 pl-8 dark:border-zinc-700 md:flex">
-                    <flux:heading size="sm" class="mb-3 shrink-0 font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                        {{ __('Thread') }}
-                    </flux:heading>
-
-                    <div class="flex-1 space-y-2 overflow-y-auto pb-2">
-                        @forelse ($this->epicHistory as $entry)
-                            @if ($entry->action === HistoryAction::Note)
-                                <div @class([
-                                    'rounded-xl p-4',
-                                    'bg-purple-50 dark:bg-purple-950/30' => $entry->actor_type === ActorType::Ai,
-                                    'bg-zinc-50 dark:bg-zinc-800/40' => $entry->actor_type !== ActorType::Ai,
-                                ])>
-                                    <div class="mb-2 flex items-center justify-between gap-2">
-                                        <div class="flex items-center gap-2">
-                                            @if ($entry->actor_type === ActorType::Ai)
-                                                <flux:badge color="purple" size="sm" icon="cpu-chip">
-                                                    {{ $entry->changedByToken?->name ?? 'AI' }}
-                                                </flux:badge>
-                                            @else
-                                                <flux:badge color="zinc" size="sm" icon="user">
-                                                    {{ $entry->changedByUser?->name ?? $entry->actor_name ?? 'User' }}
-                                                </flux:badge>
-                                            @endif
-                                        </div>
-                                        <span class="shrink-0 text-xs text-zinc-400">{{ $entry->created_at->diffForHumans() }}</span>
-                                    </div>
-                                    @if ($entry->body)
-                                        <p class="whitespace-pre-wrap text-sm text-zinc-800 dark:text-zinc-200">{{ $entry->body }}</p>
-                                    @elseif (isset($entry->metadata['message']))
-                                        <p class="text-sm text-zinc-800 dark:text-zinc-200">{{ $entry->metadata['message'] }}</p>
-                                    @endif
-                                    @php $eMeta = $entry->metadata ?? []; @endphp
-                                    @if (isset($eMeta['model']) || isset($eMeta['duration_ms']))
-                                        <div class="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400">
-                                            @if (isset($eMeta['model']))<span>{{ $eMeta['model'] }}</span>@endif
-                                            @if (isset($eMeta['duration_ms']))<span>{{ number_format($eMeta['duration_ms'] / 1000, 1) }}s</span>@endif
-                                        </div>
-                                    @endif
-                                </div>
-                            @else
-                                <div class="flex items-center gap-2 px-1 py-1 text-xs text-zinc-400 dark:text-zinc-500">
-                                    <span class="size-1.5 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
-                                    <span class="flex-1">{{ $entry->summary() }}</span>
-                                    <span class="shrink-0">{{ $entry->created_at->diffForHumans() }}</span>
-                                </div>
-                            @endif
-                        @empty
-                            <flux:text class="text-sm text-zinc-400">{{ __('No history yet.') }}</flux:text>
-                        @endforelse
-                    </div>
-
-                    <div class="mt-3 shrink-0 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                        <flux:textarea
-                            wire:model="epicReplyBody"
-                            :placeholder="__('Add a note...')"
-                            rows="3"
-                        />
-                        <div class="mt-2 flex justify-end">
-                            <flux:button
-                                variant="primary"
-                                size="sm"
-                                wire:click="addEpicReply"
-                                x-bind:disabled="! $wire.epicReplyBody.trim()"
-                            >{{ __('Send') }}</flux:button>
-                        </div>
-                    </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <x-fullscreen-link :label="__('AI mode')" icon="cpu-chip">
+                        <flux:textarea wire:model="editEpicAiMode" class="flex-1" rows="6" :placeholder="__('Describe how AI should behave for this epic...')" />
+                    </x-fullscreen-link>
+                    <x-fullscreen-link :label="__('View notes')" :heading="__('Thread')" icon="chat-bubble-left-right">
+                        <x-conversation-thread :history="$this->epicHistory" reply-model="epicReplyBody" send-method="addEpicReply" :show-send-to-claude="false" />
+                    </x-fullscreen-link>
                 </div>
+            </form>
+
+            <div class="mt-5 flex shrink-0 justify-end gap-2">
+                <flux:button variant="filled" wire:click="closeEditEpic">{{ __('Cancel') }}</flux:button>
+                <flux:tooltip content="Ctrl+Enter">
+                    <flux:button variant="primary" form="edit-epic-form" type="submit">{{ __('Save changes') }}</flux:button>
+                </flux:tooltip>
             </div>
         </div>
     </flux:modal>
 
     {{-- Create Feature Modal --}}
-    <flux:modal name="create-feature" focusable class="md:w-[520px]">
-        <form wire:submit="createFeature" class="space-y-5"
-            @keydown.ctrl.enter.prevent="$wire.createFeature()"
-            @keydown.meta.enter.prevent="$wire.createFeature()"
-        >
-            <div>
-                <flux:heading size="lg">{{ __('New feature') }}</flux:heading>
-                <flux:subheading>{{ __('Features are groups of related tasks within an epic.') }}</flux:subheading>
-            </div>
+    <flux:modal name="create-feature" focusable class="modal-fullscreen">
+        <div class="mx-auto flex h-full w-full max-w-lg flex-col justify-center overflow-y-auto">
+            <form wire:submit="createFeature" class="space-y-5"
+                @keydown.ctrl.enter.prevent="$wire.createFeature()"
+                @keydown.meta.enter.prevent="$wire.createFeature()"
+            >
+                <div>
+                    <flux:heading size="lg">{{ __('New feature') }}</flux:heading>
+                    <flux:subheading>{{ __('Features are groups of related tasks within an epic.') }}</flux:subheading>
+                </div>
 
-            <flux:input wire:model="newFeatureName" :label="__('Name')" autofocus required />
+                <flux:input wire:model="newFeatureName" :label="__('Name')" autofocus required />
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <flux:select wire:model="newFeatureTdd" :label="__('TDD')">
-                    <flux:select.option value="">
-                        {{ __('Inherit') }}@if($epic->tdd !== null) ({{ $epic->tdd ? 'Enabled' : 'Disabled' }})@endif
-                    </flux:select.option>
-                    <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
-                    <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
-                </flux:select>
-                <flux:select wire:model="newFeatureEnvironment" :label="__('Environment')">
-                    <flux:select.option value="">{{ __('Inherit') }}@if($epic->environment) ({{ $epic->environment }})@endif</flux:select.option>
-                    <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
-                    <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
-                    <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
-                    <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
-                </flux:select>
-            </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <flux:select wire:model="newFeatureTdd" :label="__('TDD')">
+                        <flux:select.option value="">
+                            {{ __('Inherit') }}@if($epic->tdd !== null) ({{ $epic->tdd ? 'Enabled' : 'Disabled' }})@endif
+                        </flux:select.option>
+                        <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
+                        <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
+                    </flux:select>
+                    <flux:select wire:model="newFeatureEnvironment" :label="__('Environment')">
+                        <flux:select.option value="">{{ __('Inherit') }}@if($epic->environment) ({{ $epic->environment }})@endif</flux:select.option>
+                        <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
+                        <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
+                        <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
+                        <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                    </flux:select>
+                </div>
 
-            <flux:textarea wire:model="newFeatureAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$epic->ai_mode ? __('Inherits: ').$epic->ai_mode : __('Describe how AI should behave...')" />
+                <flux:textarea wire:model="newFeatureAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$epic->ai_mode ? __('Inherits: ').$epic->ai_mode : __('Describe how AI should behave...')" />
 
-            <div class="flex justify-end gap-2">
-                <flux:modal.close>
-                    <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                </flux:modal.close>
-                <flux:tooltip content="Ctrl+Enter">
-                    <flux:button variant="primary" type="submit">{{ __('Create feature') }}</flux:button>
-                </flux:tooltip>
-            </div>
-        </form>
+                <div class="flex justify-end gap-2">
+                    <flux:modal.close>
+                        <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                    </flux:modal.close>
+                    <flux:tooltip content="Ctrl+Enter">
+                        <flux:button variant="primary" type="submit">{{ __('Create feature') }}</flux:button>
+                    </flux:tooltip>
+                </div>
+            </form>
+        </div>
     </flux:modal>
 
     {{-- Edit Feature Modal --}}
     <flux:modal name="edit-feature" focusable class="modal-fullscreen" x-on:close="$wire.closeEditFeature()">
-        <div class="flex h-full flex-col">
+        <div class="mx-auto flex h-full w-full max-w-lg flex-col overflow-y-auto">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit feature') }}</flux:heading>
 
-            <div class="flex min-h-0 flex-1 gap-8">
-                {{-- Form --}}
-                <div class="flex w-full flex-col overflow-y-auto md:w-96 md:shrink-0">
-                    <form wire:submit="updateFeature" id="edit-feature-form" class="flex-1 space-y-5"
-                        @keydown.ctrl.enter.prevent="$wire.updateFeature()"
-                        @keydown.meta.enter.prevent="$wire.updateFeature()"
-                    >
-                        <flux:input wire:model="editFeatureName" :label="__('Name')" autofocus required />
+            <form wire:submit="updateFeature" id="edit-feature-form" class="flex-1 space-y-5"
+                @keydown.ctrl.enter.prevent="$wire.updateFeature()"
+                @keydown.meta.enter.prevent="$wire.updateFeature()"
+            >
+                <flux:input wire:model="editFeatureName" :label="__('Name')" autofocus required />
 
-                        <flux:select wire:model="editFeatureStatus" :label="__('Status')">
-                            @foreach (FeatureStatus::cases() as $status)
-                                <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
+                <flux:select wire:model="editFeatureStatus" :label="__('Status')">
+                    @foreach (FeatureStatus::cases() as $status)
+                        <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
+                    @endforeach
+                </flux:select>
 
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <flux:select wire:model="editFeatureTdd" :label="__('TDD')">
-                                <flux:select.option value="">
-                                    {{ __('Inherit') }}@if($epic->tdd !== null) ({{ $epic->tdd ? 'Enabled' : 'Disabled' }})@endif
-                                </flux:select.option>
-                                <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
-                                <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
-                            </flux:select>
-                            <flux:select wire:model="editFeatureEnvironment" :label="__('Environment')">
-                                <flux:select.option value="">{{ __('Inherit') }}@if($epic->environment) ({{ $epic->environment }})@endif</flux:select.option>
-                                <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
-                                <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
-                                <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
-                                <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
-                            </flux:select>
-                        </div>
-
-                        <flux:textarea wire:model="editFeatureAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$epic->ai_mode ? __('Inherits: ').$epic->ai_mode : __('Describe how AI should behave...')" />
-                    </form>
-
-                    <div class="mt-5 flex shrink-0 items-center justify-between gap-2">
-                        <flux:button variant="danger" icon="trash" size="sm" wire:click="confirmDeleteFeature('{{ $editingFeatureId }}')">{{ __('Delete') }}</flux:button>
-                        <div class="flex gap-2">
-                            <flux:button variant="filled" wire:click="closeEditFeature">{{ __('Cancel') }}</flux:button>
-                            <flux:tooltip content="Ctrl+Enter">
-                                <flux:button variant="primary" form="edit-feature-form" type="submit">{{ __('Save changes') }}</flux:button>
-                            </flux:tooltip>
-                        </div>
-                    </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <flux:select wire:model="editFeatureTdd" :label="__('TDD')">
+                        <flux:select.option value="">
+                            {{ __('Inherit') }}@if($epic->tdd !== null) ({{ $epic->tdd ? 'Enabled' : 'Disabled' }})@endif
+                        </flux:select.option>
+                        <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
+                        <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
+                    </flux:select>
+                    <flux:select wire:model="editFeatureEnvironment" :label="__('Environment')">
+                        <flux:select.option value="">{{ __('Inherit') }}@if($epic->environment) ({{ $epic->environment }})@endif</flux:select.option>
+                        <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
+                        <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
+                        <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
+                        <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                    </flux:select>
                 </div>
 
-                {{-- Conversation thread --}}
-                <div class="hidden min-h-0 flex-1 flex-col border-l border-zinc-200 pl-8 dark:border-zinc-700 md:flex">
-                    <flux:heading size="sm" class="mb-3 shrink-0 font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                        {{ __('Thread') }}
-                    </flux:heading>
+                <div class="grid grid-cols-2 gap-4">
+                    <x-fullscreen-link :label="__('AI mode')" icon="cpu-chip">
+                        <flux:textarea wire:model="editFeatureAiMode" class="flex-1" rows="6" :placeholder="$epic->ai_mode ? __('Inherits: ').$epic->ai_mode : __('Describe how AI should behave...')" />
+                    </x-fullscreen-link>
+                    <x-fullscreen-link :label="__('View notes')" :heading="__('Thread')" icon="chat-bubble-left-right">
+                        <x-conversation-thread :history="$this->editingFeature?->history ?? collect()" reply-model="featureReplyBody" send-method="addFeatureReply" />
+                    </x-fullscreen-link>
+                </div>
+            </form>
 
-                    <div class="flex-1 space-y-2 overflow-y-auto pb-2">
-                        @if ($this->editingFeature)
-                            @forelse ($this->editingFeature->history as $entry)
-                                @if ($entry->action === HistoryAction::Note)
-                                    <div @class([
-                                        'rounded-xl p-4',
-                                        'bg-purple-50 dark:bg-purple-950/30' => $entry->actor_type === ActorType::Ai,
-                                        'bg-zinc-50 dark:bg-zinc-800/40' => $entry->actor_type !== ActorType::Ai,
-                                    ])>
-                                        <div class="mb-2 flex items-center justify-between gap-2">
-                                            <div class="flex items-center gap-2">
-                                                @if ($entry->actor_type === ActorType::Ai)
-                                                    <flux:badge color="purple" size="sm" icon="cpu-chip">
-                                                        {{ $entry->changedByToken?->name ?? 'AI' }}
-                                                    </flux:badge>
-                                                @else
-                                                    <flux:badge color="zinc" size="sm" icon="user">
-                                                        {{ $entry->changedByUser?->name ?? $entry->actor_name ?? 'User' }}
-                                                    </flux:badge>
-                                                @endif
-                                            </div>
-                                            <span class="shrink-0 text-xs text-zinc-400">{{ $entry->created_at->diffForHumans() }}</span>
-                                        </div>
-                                        @if ($entry->body)
-                                            <p class="whitespace-pre-wrap text-sm text-zinc-800 dark:text-zinc-200">{{ $entry->body }}</p>
-                                        @elseif (isset($entry->metadata['message']))
-                                            <p class="text-sm text-zinc-800 dark:text-zinc-200">{{ $entry->metadata['message'] }}</p>
-                                        @endif
-                                        @php $fMeta = $entry->metadata ?? []; @endphp
-                                        @if (isset($fMeta['model']) || isset($fMeta['duration_ms']))
-                                            <div class="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400">
-                                                @if (isset($fMeta['model']))<span>{{ $fMeta['model'] }}</span>@endif
-                                                @if (isset($fMeta['duration_ms']))<span>{{ number_format($fMeta['duration_ms'] / 1000, 1) }}s</span>@endif
-                                            </div>
-                                        @endif
-                                    </div>
-                                @else
-                                    <div class="flex items-center gap-2 px-1 py-1 text-xs text-zinc-400 dark:text-zinc-500">
-                                        <span class="size-1.5 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
-                                        <span class="flex-1">{{ $entry->summary() }}</span>
-                                        <span class="shrink-0">{{ $entry->created_at->diffForHumans() }}</span>
-                                    </div>
-                                @endif
-                            @empty
-                                <flux:text class="text-sm text-zinc-400">{{ __('No history yet.') }}</flux:text>
-                            @endforelse
-                        @endif
-                    </div>
-
-                    <div class="mt-3 shrink-0 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                        <flux:textarea
-                            wire:model="featureReplyBody"
-                            :placeholder="__('Add a note...')"
-                            rows="3"
-                        />
-                        <div class="mt-2 flex justify-between">
-                            <flux:button
-                                variant="ghost"
-                                size="sm"
-                                icon="cpu-chip"
-                                wire:click="addFeatureReply(true)"
-                                x-bind:disabled="! $wire.featureReplyBody.trim()"
-                            >{{ __('Send to Claude') }}</flux:button>
-                            <flux:button
-                                variant="primary"
-                                size="sm"
-                                wire:click="addFeatureReply"
-                                x-bind:disabled="! $wire.featureReplyBody.trim()"
-                            >{{ __('Send') }}</flux:button>
-                        </div>
-                    </div>
+            <div class="mt-5 flex shrink-0 items-center justify-between gap-2">
+                <flux:button variant="danger" icon="trash" size="sm" wire:click="confirmDeleteFeature('{{ $editingFeatureId }}')">{{ __('Delete') }}</flux:button>
+                <div class="flex gap-2">
+                    <flux:button variant="filled" wire:click="closeEditFeature">{{ __('Cancel') }}</flux:button>
+                    <flux:tooltip content="Ctrl+Enter">
+                        <flux:button variant="primary" form="edit-feature-form" type="submit">{{ __('Save changes') }}</flux:button>
+                    </flux:tooltip>
                 </div>
             </div>
         </div>
     </flux:modal>
 
     {{-- Create Task Modal --}}
-    <flux:modal name="create-task" focusable class="md:w-[520px]">
-        <form wire:submit="createTask" class="space-y-5"
-            @keydown.ctrl.enter.prevent="$wire.createTask()"
-            @keydown.meta.enter.prevent="$wire.createTask()"
-        >
-            <div>
-                <flux:heading size="lg">{{ __('New task') }}</flux:heading>
-            </div>
+    <flux:modal name="create-task" focusable class="modal-fullscreen">
+        <div class="mx-auto flex h-full w-full max-w-lg flex-col justify-center overflow-y-auto">
+            <form wire:submit="createTask" class="space-y-5"
+                @keydown.ctrl.enter.prevent="$wire.createTask()"
+                @keydown.meta.enter.prevent="$wire.createTask()"
+            >
+                <div>
+                    <flux:heading size="lg">{{ __('New task') }}</flux:heading>
+                </div>
 
-            <flux:input wire:model="newTaskTitle" :label="__('Title')" autofocus required />
-            <flux:textarea wire:model="newTaskDescription" :label="__('Description (optional)')" rows="3" />
-            <flux:input
-                wire:model="newTaskPriority"
-                :label="__('Priority (0–10)')"
-                type="number"
-                min="0"
-                max="10"
-            />
+                <flux:input wire:model="newTaskTitle" :label="__('Title')" autofocus required />
+                <flux:textarea wire:model="newTaskDescription" :label="__('Description (optional)')" rows="3" />
+                <flux:input
+                    wire:model="newTaskPriority"
+                    :label="__('Priority (0–10)')"
+                    type="number"
+                    min="0"
+                    max="10"
+                />
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <flux:select wire:model="newTaskTdd" :label="__('TDD')">
-                    <flux:select.option value="">
-                        {{ __('Inherit') }}@php $rt = $this->addingTaskForFeature?->resolvedTdd(); @endphp@if($rt !== null) ({{ $rt ? 'Enabled' : 'Disabled' }})@endif
-                    </flux:select.option>
-                    <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
-                    <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
-                </flux:select>
-                @php $re = $this->addingTaskForFeature?->resolvedEnvironment(); @endphp
-                <flux:select wire:model="newTaskEnvironment" :label="__('Environment')">
-                    <flux:select.option value="">{{ __('Inherit') }}@if($re) ({{ $re }})@endif</flux:select.option>
-                    <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
-                    <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
-                    <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
-                    <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
-                </flux:select>
-            </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <flux:select wire:model="newTaskTdd" :label="__('TDD')">
+                        <flux:select.option value="">
+                            {{ __('Inherit') }}@php $rt = $this->addingTaskForFeature?->resolvedTdd(); @endphp@if($rt !== null) ({{ $rt ? 'Enabled' : 'Disabled' }})@endif
+                        </flux:select.option>
+                        <flux:select.option value="1">{{ __('Enabled') }}</flux:select.option>
+                        <flux:select.option value="0">{{ __('Disabled') }}</flux:select.option>
+                    </flux:select>
+                    @php $re = $this->addingTaskForFeature?->resolvedEnvironment(); @endphp
+                    <flux:select wire:model="newTaskEnvironment" :label="__('Environment')">
+                        <flux:select.option value="">{{ __('Inherit') }}@if($re) ({{ $re }})@endif</flux:select.option>
+                        <flux:select.option value="Development">{{ __('Development') }}</flux:select.option>
+                        <flux:select.option value="Production">{{ __('Production') }}</flux:select.option>
+                        <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
+                        <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                    </flux:select>
+                </div>
 
-            @php $ram = $this->addingTaskForFeature?->resolvedAiMode(); @endphp
-            <flux:textarea wire:model="newTaskAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$ram ? __('Inherits: ').$ram : __('Describe how AI should behave...')" />
+                @php $ram = $this->addingTaskForFeature?->resolvedAiMode(); @endphp
+                <flux:textarea wire:model="newTaskAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$ram ? __('Inherits: ').$ram : __('Describe how AI should behave...')" />
 
-            <div class="flex justify-end gap-2">
-                <flux:modal.close>
-                    <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                </flux:modal.close>
-                <flux:tooltip content="Ctrl+Enter">
-                    <flux:button variant="primary" type="submit">{{ __('Create task') }}</flux:button>
-                </flux:tooltip>
-            </div>
-        </form>
+                <div class="flex justify-end gap-2">
+                    <flux:modal.close>
+                        <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                    </flux:modal.close>
+                    <flux:tooltip content="Ctrl+Enter">
+                        <flux:button variant="primary" type="submit">{{ __('Create task') }}</flux:button>
+                    </flux:tooltip>
+                </div>
+            </form>
+        </div>
     </flux:modal>
 
     {{-- Task Detail Flyout --}}
@@ -1479,6 +1338,7 @@ new #[Title('Epic Board')] class extends Component {
                             <div
                                 x-show="descExpanded"
                                 x-cloak
+                                data-fullscreen-overlay
                                 class="fixed inset-0 z-50 flex flex-col gap-4 bg-white p-6 dark:bg-zinc-900"
                                 @keydown.escape.window="descExpanded = false"
                             >
@@ -1530,22 +1390,15 @@ new #[Title('Epic Board')] class extends Component {
                             </flux:select>
                         </div>
 
-                        {{-- AI mode — collapsed by default --}}
+                        {{-- AI mode + Notes --}}
                         @php $pAi = $this->selectedTask->feature?->resolvedAiMode(); @endphp
-                        <div x-data="{ aiOpen: {{ $editTaskAiMode ? 'true' : 'false' }} }">
-                            <button type="button" @click="aiOpen = !aiOpen"
-                                class="flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                            >
-                                <flux:icon x-show="!aiOpen" name="chevron-right" class="size-3.5" />
-                                <flux:icon x-show="aiOpen" name="chevron-down" class="size-3.5" />
-                                {{ __('AI mode') }}
-                                @if (! $editTaskAiMode && $pAi)
-                                    <span class="text-xs font-normal text-zinc-400">(inherited)</span>
-                                @endif
-                            </button>
-                            <div x-show="aiOpen" class="mt-2">
-                                <flux:textarea wire:model="editTaskAiMode" rows="2" :placeholder="$pAi ? __('Inherits: ').$pAi : __('Describe how AI should behave...')" />
-                            </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <x-fullscreen-link :label="__('AI mode')" icon="cpu-chip">
+                                <flux:textarea wire:model="editTaskAiMode" class="flex-1" rows="6" :placeholder="$pAi ? __('Inherits: ').$pAi : __('Describe how AI should behave...')" />
+                            </x-fullscreen-link>
+                            <x-fullscreen-link :label="__('View notes')" :heading="__('Thread')" icon="chat-bubble-left-right">
+                                <x-conversation-thread :history="$this->selectedTask->history" reply-model="taskReplyBody" send-method="addTaskReply" />
+                            </x-fullscreen-link>
                         </div>
 
                         {{-- Actions --}}
@@ -1558,80 +1411,6 @@ new #[Title('Epic Board')] class extends Component {
                             </flux:tooltip>
                         </div>
                     </form>
-                </div>
-
-                {{-- Thread --}}
-                <div class="flex min-h-0 flex-1 flex-col pt-5">
-                    <div class="flex-1 overflow-y-auto space-y-2 pb-2">
-                        @forelse ($this->selectedTask->history as $entry)
-                            @if ($entry->action === HistoryAction::Note)
-                                <div @class([
-                                    'rounded-xl p-4',
-                                    'bg-purple-50 dark:bg-purple-950/30' => $entry->actor_type === ActorType::Ai,
-                                    'bg-zinc-50 dark:bg-zinc-800/40' => $entry->actor_type !== ActorType::Ai,
-                                ])>
-                                    <div class="mb-2 flex items-center justify-between gap-2">
-                                        <div class="flex items-center gap-2">
-                                            @if ($entry->actor_type === ActorType::Ai)
-                                                <flux:badge color="purple" size="sm" icon="cpu-chip">
-                                                    {{ $entry->changedByToken?->name ?? 'AI' }}
-                                                </flux:badge>
-                                            @else
-                                                <flux:badge color="zinc" size="sm" icon="user">
-                                                    {{ $entry->changedByUser?->name ?? $entry->actor_name ?? 'User' }}
-                                                </flux:badge>
-                                            @endif
-                                        </div>
-                                        <span class="shrink-0 text-xs text-zinc-400">{{ $entry->created_at->diffForHumans() }}</span>
-                                    </div>
-                                    @if ($entry->body)
-                                        <p class="whitespace-pre-wrap text-sm text-zinc-800 dark:text-zinc-200">{{ $entry->body }}</p>
-                                    @elseif (isset($entry->metadata['message']))
-                                        <p class="text-sm text-zinc-800 dark:text-zinc-200">{{ $entry->metadata['message'] }}</p>
-                                    @endif
-                                    @php $meta = $entry->metadata ?? []; @endphp
-                                    @if (isset($meta['model']) || isset($meta['duration_ms']))
-                                        <div class="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400">
-                                            @if (isset($meta['model']))<span>{{ $meta['model'] }}</span>@endif
-                                            @if (isset($meta['duration_ms']))<span>{{ number_format($meta['duration_ms'] / 1000, 1) }}s</span>@endif
-                                        </div>
-                                    @endif
-                                </div>
-                            @else
-                                <div class="flex items-center gap-2 px-1 py-1 text-xs text-zinc-400 dark:text-zinc-500">
-                                    <span class="size-1.5 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
-                                    <span class="flex-1">{{ $entry->summary() }}</span>
-                                    <span class="shrink-0">{{ $entry->created_at->diffForHumans() }}</span>
-                                </div>
-                            @endif
-                        @empty
-                            <flux:text class="text-sm text-zinc-400">{{ __('No history yet.') }}</flux:text>
-                        @endforelse
-                    </div>
-
-                    {{-- Reply box --}}
-                    <div class="mt-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                        <flux:textarea
-                            wire:model="taskReplyBody"
-                            :placeholder="__('Add a note...')"
-                            rows="3"
-                        />
-                        <div class="mt-2 flex justify-between">
-                            <flux:button
-                                variant="ghost"
-                                size="sm"
-                                icon="cpu-chip"
-                                wire:click="addTaskReply(true)"
-                                x-bind:disabled="! $wire.taskReplyBody.trim()"
-                            >{{ __('Send to Claude') }}</flux:button>
-                            <flux:button
-                                variant="primary"
-                                size="sm"
-                                wire:click="addTaskReply"
-                                x-bind:disabled="! $wire.taskReplyBody.trim()"
-                            >{{ __('Send') }}</flux:button>
-                        </div>
-                    </div>
                 </div>
             </div>
         @endif

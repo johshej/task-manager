@@ -514,7 +514,8 @@
     if (e.key === 'Escape') {
       const hadHelp = !!document.getElementById('kb-help-overlay');
       hideHelp();
-      if (!hadHelp && window.history && window.history.length > 1) {
+      const hadOverlay = Array.from(document.querySelectorAll('[data-fullscreen-overlay]')).some((el) => el.offsetParent !== null);
+      if (!hadHelp && !hadOverlay && window.history && window.history.length > 1) {
         e.preventDefault();
         window.history.back();
       }
