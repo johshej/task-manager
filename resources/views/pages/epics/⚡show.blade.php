@@ -519,6 +519,16 @@ new #[Title('Epic Board')] class extends Component {
         $this->dispatch('board-sorted', id: $featureId, type: 'feature');
     }
 
+    public function moveFeatureToTop(string $featureId): void
+    {
+        $this->sortBoardFeature($featureId, 0);
+    }
+
+    public function moveFeatureToBottom(string $featureId): void
+    {
+        $this->sortBoardFeature($featureId, $this->epic->features()->count());
+    }
+
     public function sortKanban(string $taskId, int $position, string $statusValue): void
     {
         $task = Task::findOrFail($taskId);
@@ -827,7 +837,9 @@ new #[Title('Epic Board')] class extends Component {
         <div class="space-y-6" data-board-mode="board"
              wire:sort="sortBoardFeature"
              x-on:board-task-reorder.window="$wire.sortBoard($event.detail.taskId, $event.detail.position)"
-             x-on:board-feature-reorder.window="$wire.sortBoardFeature($event.detail.featureId, $event.detail.position)">
+             x-on:board-feature-reorder.window="$wire.sortBoardFeature($event.detail.featureId, $event.detail.position)"
+             x-on:board-delete-feature.window="$wire.confirmDeleteFeature($event.detail.featureId)"
+             x-on:board-delete-task.window="$wire.confirmDeleteTask($event.detail.taskId)">
             @forelse ($this->features as $feature)
                 <div
                     wire:key="board-feature-{{ $feature->id }}"
@@ -850,13 +862,19 @@ new #[Title('Epic Board')] class extends Component {
                     <div data-selectable data-feature-id="{{ $feature->id }}" @if ($highlightedId === $feature->id) data-highlighted @endif class="flex flex-col border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
                         <div class="flex items-center justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-1.5">
-                                <div wire:sort:handle class="shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
-                                    <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
-                                        <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
-                                        <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
-                                        <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
-                                    </svg>
-                                </div>
+                                <flux:dropdown>
+                                    <div wire:sort:handle class="shrink-0 cursor-grab text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
+                                        <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
+                                            <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
+                                            <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                                            <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+                                        </svg>
+                                    </div>
+                                    <flux:menu>
+                                        <flux:menu.item icon="chevron-double-up" wire:click="moveFeatureToTop('{{ $feature->id }}')">{{ __('Move to top') }}</flux:menu.item>
+                                        <flux:menu.item icon="chevron-double-down" wire:click="moveFeatureToBottom('{{ $feature->id }}')">{{ __('Move to bottom') }}</flux:menu.item>
+                                    </flux:menu>
+                                </flux:dropdown>
                                 <flux:badge color="{{ $feature->status->color() }}" size="sm">{{ $feature->status->label() }}</flux:badge>
                                 <flux:text class="text-xs text-zinc-400">
                                     {{ $feature->tasks->count() }} {{ Str::plural('task', $feature->tasks->count()) }}
@@ -882,7 +900,7 @@ new #[Title('Epic Board')] class extends Component {
                                     </flux:tooltip>
                                 @endif
                                 <flux:tooltip :content="__('Add task')">
-                                    <flux:button variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')" />
+                                    <flux:button variant="ghost" size="sm" icon="plus" data-add-task-btn wire:click="openAddTask('{{ $feature->id }}')" />
                                 </flux:tooltip>
                                 <flux:tooltip :content="__('Edit feature')">
                                     <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn :href="route('epics.board.feature', [$epic, $feature])" wire:navigate />
@@ -987,6 +1005,8 @@ new #[Title('Epic Board')] class extends Component {
         <div class="overflow-x-auto pb-4" data-board-mode="kanban"
              x-on:board-feature-reorder.window="$wire.sortBoardFeature($event.detail.featureId, $event.detail.position)"
              x-on:kanban-task-reorder.window="$wire.sortKanban($event.detail.taskId, $event.detail.position, $event.detail.statusValue)"
+             x-on:board-delete-feature.window="$wire.confirmDeleteFeature($event.detail.featureId)"
+             x-on:board-delete-task.window="$wire.confirmDeleteTask($event.detail.taskId)"
         >
             <div class="flex gap-4" style="min-width: max-content">
                 @foreach ($this->kanbanColumns as $column)
@@ -1171,7 +1191,7 @@ new #[Title('Epic Board')] class extends Component {
                                 variant="primary"
                                 size="sm"
                                 wire:click="addEpicReply"
-                                :disabled="! trim($epicReplyBody)"
+                                x-bind:disabled="! $wire.epicReplyBody.trim()"
                             >{{ __('Send') }}</flux:button>
                         </div>
                     </div>
@@ -1341,13 +1361,13 @@ new #[Title('Epic Board')] class extends Component {
                                 size="sm"
                                 icon="cpu-chip"
                                 wire:click="addFeatureReply(true)"
-                                :disabled="! trim($featureReplyBody)"
+                                x-bind:disabled="! $wire.featureReplyBody.trim()"
                             >{{ __('Send to Claude') }}</flux:button>
                             <flux:button
                                 variant="primary"
                                 size="sm"
                                 wire:click="addFeatureReply"
-                                :disabled="! trim($featureReplyBody)"
+                                x-bind:disabled="! $wire.featureReplyBody.trim()"
                             >{{ __('Send') }}</flux:button>
                         </div>
                     </div>
@@ -1602,13 +1622,13 @@ new #[Title('Epic Board')] class extends Component {
                                 size="sm"
                                 icon="cpu-chip"
                                 wire:click="addTaskReply(true)"
-                                :disabled="! trim($taskReplyBody)"
+                                x-bind:disabled="! $wire.taskReplyBody.trim()"
                             >{{ __('Send to Claude') }}</flux:button>
                             <flux:button
                                 variant="primary"
                                 size="sm"
                                 wire:click="addTaskReply"
-                                :disabled="! trim($taskReplyBody)"
+                                x-bind:disabled="! $wire.taskReplyBody.trim()"
                             >{{ __('Send') }}</flux:button>
                         </div>
                     </div>

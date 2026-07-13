@@ -48,13 +48,16 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select item</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Move item (board/kanban)</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">←</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">→</kbd> &nbsp; Switch column (kanban)</div>
-            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected task</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected item</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Delete</kbd> &nbsp; Delete selected item</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">+</kbd> &nbsp; Add sibling (feature, or task if a task is selected)</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">+</kbd> &nbsp; Add task in selected feature</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">t</kbd> &nbsp; Toggle feature collapse</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">t</kbd> &nbsp; Toggle all features</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit epic</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">1</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">2</kbd> &nbsp; Board / Kanban</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">f</kbd> &nbsp; Toggle filters</div>
-            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">+</kbd> &nbsp; Add feature</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> &nbsp; Add feature</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Ctrl</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Save form</div>
           </div>
           <div>
@@ -185,6 +188,47 @@
     if (!active) return;
     const btn = active.querySelector('[data-open-btn]');
     if (btn) btn.click();
+  }
+
+  // ── Contextual add / delete on the selected feature or task ──────────────
+
+  function addTaskToActiveFeature() {
+    const active = currentActive();
+    if (!active) return;
+    const card = active.closest('[data-board-feature-card]');
+    if (!card) return;
+    const btn = card.querySelector('[data-add-task-btn]');
+    if (btn) btn.click();
+  }
+
+  function addContextual(isSubLevel) {
+    const active = currentActive();
+    const isFeatureSelected = !!active && active.hasAttribute('data-feature-id');
+    const isTaskSelected = !!active && !isFeatureSelected && active.hasAttribute('wire:sort:item');
+
+    if (isSubLevel) {
+      // Shift+Plus: add a sub-level element — only a feature has one (a task).
+      if (isFeatureSelected) addTaskToActiveFeature();
+      return;
+    }
+
+    // Plus: add another element of the same type as whatever is selected.
+    if (isTaskSelected) addTaskToActiveFeature();
+    else shortcut('add-feature');
+  }
+
+  function deleteActiveItem() {
+    const active = currentActive();
+    if (!active) return;
+    if (active.hasAttribute('data-feature-id')) {
+      const featureId = active.getAttribute('data-feature-id');
+      window.dispatchEvent(new CustomEvent('board-delete-feature', { detail: { featureId } }));
+      return;
+    }
+    const taskId = active.getAttribute('wire:sort:item');
+    if (taskId) {
+      window.dispatchEvent(new CustomEvent('board-delete-task', { detail: { taskId } }));
+    }
   }
 
   // ── Epics list reorder ────────────────────────────────────────────────────
@@ -419,6 +463,7 @@
       }
 
       if (e.key === 'Enter') { e.preventDefault(); handled = true; openActiveTask(); }
+      if (e.key === 'Delete') { e.preventDefault(); handled = true; deleteActiveItem(); }
       if (e.key === 't' && mode === 'board' && !e.shiftKey) { e.preventDefault(); handled = true; toggleActiveFeatureCollapse(); }
       if (e.key === 'T' && mode === 'board') {
         e.preventDefault(); handled = true;
@@ -428,7 +473,13 @@
       if (e.key === 'e') { e.preventDefault(); handled = true; shortcut('edit-epic'); }
       if (e.key === '1') { e.preventDefault(); handled = true; shortcut('view-board'); }
       if (e.key === '2') { e.preventDefault(); handled = true; shortcut('view-kanban'); }
-      if (e.key === 'n' || e.key === '+') { e.preventDefault(); handled = true; shortcut('add-feature'); }
+      if (e.key === 'n') { e.preventDefault(); handled = true; shortcut('add-feature'); }
+      // "+" is Shift+"=" on most layouts, so the physical Equal key (with/without
+      // Shift) is used to tell a plain "+" apart from a "Shift + +" press.
+      if (e.key === '+' || e.code === 'Equal') {
+        e.preventDefault(); handled = true;
+        addContextual(e.shiftKey);
+      }
       if (e.key === 'f') {
         e.preventDefault(); handled = true;
         if (isFilterOpen()) { closeFilter(); } else { openFilter(); }

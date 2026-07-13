@@ -8,6 +8,7 @@ use App\Enums\TaskStatus;
 use App\Models\Epic;
 use App\Models\Feature;
 use App\Models\Task;
+use App\Models\TaskHistory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
@@ -653,6 +654,34 @@ test('sortBoardFeature reorders features', function () {
     expect($featureB->fresh()->order_index)->toBe(2);
 });
 
+test('moveFeatureToTop moves a feature to position 0', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['order_index' => 0]);
+    $featureB = Feature::factory()->for($epic)->create(['order_index' => 1]);
+    $featureC = Feature::factory()->for($epic)->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveFeatureToTop', $featureC->id);
+
+    expect($featureC->fresh()->order_index)->toBe(0);
+    expect($featureA->fresh()->order_index)->toBe(1);
+    expect($featureB->fresh()->order_index)->toBe(2);
+});
+
+test('moveFeatureToBottom moves a feature to the last position', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['order_index' => 0]);
+    $featureB = Feature::factory()->for($epic)->create(['order_index' => 1]);
+    $featureC = Feature::factory()->for($epic)->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveFeatureToBottom', $featureA->id);
+
+    expect($featureB->fresh()->order_index)->toBe(0);
+    expect($featureC->fresh()->order_index)->toBe(1);
+    expect($featureA->fresh()->order_index)->toBe(2);
+});
+
 test('sortBoard does not affect tasks in other features', function () {
     $epic = Epic::factory()->create();
     $featureA = Feature::factory()->for($epic)->create();
@@ -924,4 +953,146 @@ test('board empty-state section opens add task modal on call', function () {
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openAddTask', $feature->id)
         ->assertSet('addingTaskForFeatureId', $feature->id);
+});
+
+// ── Conversation notes ─────────────────────────────────────────────────────────
+
+test('can add a note to a task', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->set('taskReplyBody', 'A note about this task')
+        ->call('addTaskReply')
+        ->assertHasNoErrors()
+        ->assertSet('taskReplyBody', '');
+
+    $this->assertDatabaseHas('task_histories', [
+        'task_id' => $task->id,
+        'action' => HistoryAction::Note->value,
+        'body' => 'A note about this task',
+        'changed_by_user_id' => $this->user->id,
+    ]);
+});
+
+test('adding a task note with sendToClaude flags it for Claude', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->set('taskReplyBody', 'Please look into this')
+        ->call('addTaskReply', true)
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('task_histories', [
+        'task_id' => $task->id,
+        'body' => 'Please look into this',
+    ]);
+
+    expect(TaskHistory::where('task_id', $task->id)->latest()->first()->metadata)
+        ->toBe(['claude_request' => true]);
+});
+
+test('an empty task note is rejected', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->set('taskReplyBody', '')
+        ->call('addTaskReply')
+        ->assertHasErrors('taskReplyBody');
+
+    expect(TaskHistory::where('action', HistoryAction::Note->value)->exists())->toBeFalse();
+});
+
+test('can add a note to a feature', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditFeature', $feature->id)
+        ->set('featureReplyBody', 'A note about this feature')
+        ->call('addFeatureReply')
+        ->assertHasNoErrors()
+        ->assertSet('featureReplyBody', '');
+
+    $this->assertDatabaseHas('feature_histories', [
+        'feature_id' => $feature->id,
+        'action' => HistoryAction::Note->value,
+        'body' => 'A note about this feature',
+        'changed_by_user_id' => $this->user->id,
+    ]);
+});
+
+test('can add a note to an epic', function () {
+    $epic = Epic::factory()->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('epicReplyBody', 'A note about this epic')
+        ->call('addEpicReply')
+        ->assertHasNoErrors()
+        ->assertSet('epicReplyBody', '');
+
+    $this->assertDatabaseHas('epic_histories', [
+        'epic_id' => $epic->id,
+        'action' => HistoryAction::Note->value,
+        'body' => 'A note about this epic',
+        'changed_by_user_id' => $this->user->id,
+    ]);
+});
+
+test('the task, feature, and epic Send buttons reactively enable via Alpine instead of a stale server-rendered disabled attribute', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $task = Task::factory()->for($feature)->create();
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openTask', $task->id)
+        ->call('openEditFeature', $feature->id)
+        ->html();
+
+    // wire:model (deferred) never syncs taskReplyBody/featureReplyBody/epicReplyBody to the
+    // server as the user types, so a PHP-computed `:disabled="! trim($x)"` bakes a permanently
+    // disabled button into the initial render — clicking Send then does nothing, with no error
+    // and no network request. Disabling must be reactive on the client via Alpine's $wire instead.
+    expect($html)->not->toContain(':disabled="! trim($taskReplyBody)"')
+        ->not->toContain(':disabled="! trim($featureReplyBody)"')
+        ->not->toContain(':disabled="! trim($epicReplyBody)"')
+        ->toContain('x-bind:disabled="! $wire.taskReplyBody.trim()"')
+        ->toContain('x-bind:disabled="! $wire.featureReplyBody.trim()"')
+        ->toContain('x-bind:disabled="! $wire.epicReplyBody.trim()"');
+});
+
+// ── Contextual keyboard shortcuts (+ / Shift+ + / Enter / Delete) ──────────────
+
+test('board and kanban wire up delete-feature and delete-task shortcut events', function () {
+    $epic = Epic::factory()->create();
+    Feature::factory()->for($epic)->create();
+
+    $board = Livewire::test('pages::epics.show', ['epic' => $epic])->html();
+    expect($board)
+        ->toContain('x-on:board-delete-feature.window="$wire.confirmDeleteFeature($event.detail.featureId)"')
+        ->toContain('x-on:board-delete-task.window="$wire.confirmDeleteTask($event.detail.taskId)"');
+
+    $kanban = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban')
+        ->html();
+    expect($kanban)
+        ->toContain('x-on:board-delete-feature.window="$wire.confirmDeleteFeature($event.detail.featureId)"')
+        ->toContain('x-on:board-delete-task.window="$wire.confirmDeleteTask($event.detail.taskId)"');
+});
+
+test('board feature add-task button is markable for the contextual + shortcut', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])->html();
+
+    expect($html)->toContain('data-add-task-btn="data-add-task-btn" wire:click="openAddTask(\''.$feature->id.'\')"');
 });
