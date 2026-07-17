@@ -17,6 +17,17 @@
 
   const routes = window.AppRoutes || {};
 
+  // Flux dropdowns (ui-menu, native [popover]) close themselves on Escape via
+  // their own bubble-phase handler, which may run before ours. Capture the
+  // "was a popover open" state as early as possible so the Escape-goes-back
+  // shortcut below can still see it after the popover has already closed.
+  let _popoverWasOpenOnEscape = false;
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      _popoverWasOpenOnEscape = !!document.querySelector('[popover]:popover-open');
+    }
+  }, true);
+
   // ── Help overlay ──────────────────────────────────────────────────────────
 
   const helpHtml = `
@@ -282,18 +293,21 @@
     if (!active) return;
 
     if (active.hasAttribute('data-feature-id')) {
+      // The feature label div is selectable, but the feature BLOCK (the
+      // wire:sort:item) is its parent <li> — find that block's position among
+      // its own siblings in this column's feature list.
       const featureId = active.getAttribute('data-feature-id');
-      const seen = new Set();
-      const orderedIds = [];
-      document.querySelectorAll('[data-feature-id]').forEach((el) => {
-        const id = el.getAttribute('data-feature-id');
-        if (!seen.has(id)) { seen.add(id); orderedIds.push(id); }
-      });
-      const currentIndex = orderedIds.indexOf(featureId);
+      const block = active.closest('li[wire\\:sort\\:item]');
+      const list = block ? block.closest('ul') : null;
+      if (!block || !list) return;
+      const blocks = Array.from(list.children).filter((el) => el.hasAttribute('wire:sort:item'));
+      const currentIndex = blocks.indexOf(block);
       if (currentIndex < 0) return;
-      const newIndex = Math.max(0, Math.min(orderedIds.length - 1, currentIndex + delta));
+      const newIndex = Math.max(0, Math.min(blocks.length - 1, currentIndex + delta));
       if (newIndex === currentIndex) return;
-      window.dispatchEvent(new CustomEvent('board-feature-reorder', { detail: { featureId, position: newIndex } }));
+      const statusValue = list.getAttribute('wire:sort:group-id');
+      if (!statusValue) return;
+      window.dispatchEvent(new CustomEvent('kanban-feature-reorder', { detail: { featureId, position: newIndex, statusValue } }));
       return;
     }
 
@@ -515,7 +529,7 @@
       const hadHelp = !!document.getElementById('kb-help-overlay');
       hideHelp();
       const hadOverlay = Array.from(document.querySelectorAll('[data-fullscreen-overlay]')).some((el) => el.offsetParent !== null);
-      if (!hadHelp && !hadOverlay && window.history && window.history.length > 1) {
+      if (!hadHelp && !hadOverlay && !_popoverWasOpenOnEscape && window.history && window.history.length > 1) {
         e.preventDefault();
         window.history.back();
       }

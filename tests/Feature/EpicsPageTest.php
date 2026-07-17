@@ -563,6 +563,133 @@ test('sortKanban keeps other-status tasks in the feature ordered correctly', fun
     expect($todoB->fresh()->order_index)->toBeLessThan($todoA->fresh()->order_index);
 });
 
+test('moveKanbanTaskToTop moves a task to the top of its status column', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['title' => 'A', 'status' => TaskStatus::Todo, 'order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['title' => 'B', 'status' => TaskStatus::Todo, 'order_index' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['title' => 'C', 'status' => TaskStatus::Todo, 'order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveKanbanTaskToTop', $taskC->id);
+
+    expect($taskC->fresh()->order_index)->toBe(0);
+    expect($taskA->fresh()->order_index)->toBe(1);
+    expect($taskB->fresh()->order_index)->toBe(2);
+});
+
+test('moveKanbanTaskToBottom moves a task to the bottom of its status column', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['title' => 'A', 'status' => TaskStatus::Todo, 'order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['title' => 'B', 'status' => TaskStatus::Todo, 'order_index' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['title' => 'C', 'status' => TaskStatus::Todo, 'order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveKanbanTaskToBottom', $taskA->id);
+
+    expect($taskB->fresh()->order_index)->toBe(0);
+    expect($taskC->fresh()->order_index)->toBe(1);
+    expect($taskA->fresh()->order_index)->toBe(2);
+});
+
+test('moveKanbanTaskToBottom does not disturb other features - kanban always renders feature blocks in board order', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['name' => 'Feature A', 'order_index' => 0]);
+    $featureB = Feature::factory()->for($epic)->create(['name' => 'Feature B', 'order_index' => 1]);
+    $taskA = Task::factory()->for($featureA)->create(['title' => 'A1', 'status' => TaskStatus::Todo, 'order_index' => 0]);
+    Task::factory()->for($featureB)->create(['title' => 'B1', 'status' => TaskStatus::Todo, 'order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveKanbanTaskToBottom', $taskA->id);
+
+    // Kanban groups tasks by feature (features in board order); a within-feature
+    // move can never make a task jump into a differently-ordered feature's block.
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban')
+        ->assertSeeInOrder(['Feature A', 'A1', 'Feature B', 'B1']);
+});
+
+test('kanban feature label exposes a column-scoped move-to-top/bottom menu', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['status' => TaskStatus::Todo]);
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban')
+        ->html();
+
+    expect($html)->toContain("moveKanbanFeatureToTop('{$feature->id}', '".TaskStatus::Todo->value."')")
+        ->toContain("moveKanbanFeatureToBottom('{$feature->id}', '".TaskStatus::Todo->value."')");
+});
+
+test('kanban feature block is draggable via a button handle', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    Task::factory()->for($feature)->create(['status' => TaskStatus::Todo]);
+
+    $html = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('viewMode', 'kanban')
+        ->html();
+
+    expect($html)->toContain('wire:sort="sortKanbanFeature"')
+        ->toContain('wire:sort:item="'.$feature->id.'"');
+});
+
+test('sortKanbanFeature moves a feature to the top of its status column, preserving global order for other columns', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['order_index' => 0]);
+    $featureB = Feature::factory()->for($epic)->create(['order_index' => 1]);
+    $featureC = Feature::factory()->for($epic)->create(['order_index' => 2]);
+    Task::factory()->for($featureA)->create(['status' => TaskStatus::Todo]);
+    Task::factory()->for($featureB)->create(['status' => TaskStatus::Todo]);
+    Task::factory()->for($featureC)->create(['status' => TaskStatus::Todo]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('sortKanbanFeature', $featureC->id, 0, TaskStatus::Todo->value);
+
+    expect($featureC->fresh()->order_index)->toBe(0);
+    expect($featureA->fresh()->order_index)->toBe(1);
+    expect($featureB->fresh()->order_index)->toBe(2);
+});
+
+test('sortKanbanFeature only reorders relative to features visible in that status column', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['order_index' => 0]);
+    $featureB = Feature::factory()->for($epic)->create(['order_index' => 1]); // has no Todo tasks
+    $featureC = Feature::factory()->for($epic)->create(['order_index' => 2]);
+    Task::factory()->for($featureA)->create(['status' => TaskStatus::Todo]);
+    Task::factory()->for($featureB)->create(['status' => TaskStatus::Done]);
+    Task::factory()->for($featureC)->create(['status' => TaskStatus::Todo]);
+
+    // Move C to the top of the Todo column - among Todo-visible features that's
+    // just [A, C], so C should land right before A, with B (not visible in this
+    // column) keeping its relative spot between them untouched.
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('sortKanbanFeature', $featureC->id, 0, TaskStatus::Todo->value);
+
+    expect($featureC->fresh()->order_index)->toBeLessThan($featureA->fresh()->order_index);
+    expect($featureB->fresh()->order_index)->toBeGreaterThan($featureA->fresh()->order_index);
+});
+
+test('moveKanbanFeatureToTop and moveKanbanFeatureToBottom compute the correct column-scoped position', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['order_index' => 0]);
+    $featureB = Feature::factory()->for($epic)->create(['order_index' => 1]);
+    Task::factory()->for($featureA)->create(['status' => TaskStatus::Todo]);
+    Task::factory()->for($featureB)->create(['status' => TaskStatus::Todo]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveKanbanFeatureToBottom', $featureA->id, TaskStatus::Todo->value);
+
+    expect($featureB->fresh()->order_index)->toBeLessThan($featureA->fresh()->order_index);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('moveKanbanFeatureToTop', $featureA->id, TaskStatus::Todo->value);
+
+    expect($featureA->fresh()->order_index)->toBeLessThan($featureB->fresh()->order_index);
+});
+
 test('reordering a task in kanban is reflected on the board view', function () {
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();
@@ -1063,7 +1190,7 @@ test('adding a task note with sendToClaude flags it for Claude', function () {
         'body' => 'Please look into this',
     ]);
 
-    expect(TaskHistory::where('task_id', $task->id)->latest()->first()->metadata)
+    expect(TaskHistory::where('task_id', $task->id)->where('action', HistoryAction::Note->value)->first()->metadata)
         ->toBe(['claude_request' => true]);
 });
 
