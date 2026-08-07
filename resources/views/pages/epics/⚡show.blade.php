@@ -30,6 +30,7 @@ new #[Title('Epic Board')] class extends Component {
 
     // Feature creation
     public string $newFeatureName = '';
+    public string $newFeatureDescription = '';
     public string $newFeatureTdd = '';
     public string $newFeatureAiMode = '';
     public string $newFeatureEnvironment = '';
@@ -37,6 +38,7 @@ new #[Title('Epic Board')] class extends Component {
     // Feature editing
     public ?string $editingFeatureId = null;
     public string $editFeatureName = '';
+    public string $editFeatureDescription = '';
     public string $editFeatureStatus = '';
     public string $editFeatureTdd = '';
     public string $editFeatureAiMode = '';
@@ -202,7 +204,7 @@ new #[Title('Epic Board')] class extends Component {
 
     public function openAddFeature(): void
     {
-        $this->reset('newFeatureName', 'newFeatureTdd', 'newFeatureAiMode', 'newFeatureEnvironment');
+        $this->reset('newFeatureName', 'newFeatureDescription', 'newFeatureTdd', 'newFeatureAiMode', 'newFeatureEnvironment');
         $this->modal('create-feature')->show();
     }
 
@@ -210,6 +212,7 @@ new #[Title('Epic Board')] class extends Component {
     {
         $this->validate([
             'newFeatureName' => ['required', 'string', 'max:255'],
+            'newFeatureDescription' => ['nullable', 'string'],
             'newFeatureTdd' => ['nullable', 'in:0,1'],
             'newFeatureAiMode' => ['nullable', 'string'],
             'newFeatureEnvironment' => ['nullable', 'string', 'max:100'],
@@ -217,6 +220,7 @@ new #[Title('Epic Board')] class extends Component {
 
         $feature = $this->epic->features()->create([
             'name' => $this->newFeatureName,
+            'description' => $this->newFeatureDescription ?: null,
             'status' => FeatureStatus::Todo,
             'order_index' => $this->epic->features()->count(),
             'tdd' => $this->tddNullable($this->newFeatureTdd),
@@ -224,7 +228,7 @@ new #[Title('Epic Board')] class extends Component {
             'environment' => $this->newFeatureEnvironment ?: null,
         ]);
 
-        $this->reset('newFeatureName', 'newFeatureTdd', 'newFeatureAiMode', 'newFeatureEnvironment');
+        $this->reset('newFeatureName', 'newFeatureDescription', 'newFeatureTdd', 'newFeatureAiMode', 'newFeatureEnvironment');
         $this->modal('create-feature')->close();
         unset($this->features, $this->allFeatures);
         Flux::toast(variant: 'success', text: 'Feature created.');
@@ -237,6 +241,7 @@ new #[Title('Epic Board')] class extends Component {
         $feature = Feature::findOrFail($featureId);
         $this->editingFeatureId = $featureId;
         $this->editFeatureName = $feature->name;
+        $this->editFeatureDescription = $feature->description ?? '';
         $this->editFeatureStatus = $feature->status->value;
         $this->editFeatureTdd = $this->boolToTddString($feature->tdd);
         $this->editFeatureAiMode = $feature->ai_mode ?? '';
@@ -248,6 +253,7 @@ new #[Title('Epic Board')] class extends Component {
     {
         $this->validate([
             'editFeatureName' => ['required', 'string', 'max:255'],
+            'editFeatureDescription' => ['nullable', 'string'],
             'editFeatureStatus' => ['required', 'in:' . implode(',', array_column(FeatureStatus::cases(), 'value'))],
             'editFeatureTdd' => ['nullable', 'in:0,1'],
             'editFeatureAiMode' => ['nullable', 'string'],
@@ -256,6 +262,7 @@ new #[Title('Epic Board')] class extends Component {
 
         Feature::findOrFail($this->editingFeatureId)->update([
             'name' => $this->editFeatureName,
+            'description' => $this->editFeatureDescription ?: null,
             'status' => $this->editFeatureStatus,
             'tdd' => $this->tddNullable($this->editFeatureTdd),
             'ai_mode' => $this->editFeatureAiMode ?: null,
@@ -969,6 +976,11 @@ new #[Title('Epic Board')] class extends Component {
                             </div>
                         </div>
                         <span class="font-semibold">{{ $feature->name }}</span>
+                        @if ($feature->description)
+                            <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400 break-words">
+                                {{ $feature->description }}
+                            </flux:text>
+                        @endif
                     </div>
 
                     {{-- Tasks --}}
@@ -1248,6 +1260,8 @@ new #[Title('Epic Board')] class extends Component {
 
                 <flux:input wire:model="newFeatureName" :label="__('Name')" autofocus required />
 
+                <flux:textarea wire:model="newFeatureDescription" :label="__('Description (optional)')" rows="3" />
+
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <flux:select wire:model="newFeatureTdd" :label="__('TDD')">
                         <flux:select.option value="">
@@ -1289,6 +1303,61 @@ new #[Title('Epic Board')] class extends Component {
                 @keydown.meta.enter.prevent="$wire.updateFeature()"
             >
                 <flux:input wire:model="editFeatureName" :label="__('Name')" autofocus required />
+
+                {{-- Description: auto-grow + maximize --}}
+                <div x-data="{
+                    descExpanded: false,
+                    draft: '',
+                    openMax() {
+                        this.draft = document.querySelector('[wire\\:model=\'editFeatureDescription\']')?.value ?? '';
+                        this.descExpanded = true;
+                    }
+                }">
+                    <div class="mb-1 flex items-center justify-between">
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ __('Description') }}</label>
+                        <button type="button" @click="openMax()" class="text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300">
+                            <flux:icon name="arrows-pointing-out" class="size-4" />
+                        </button>
+                    </div>
+                    <div x-data="{}"
+                        x-init="
+                            const ta = $root.querySelector('textarea');
+                            if (ta) {
+                                const resize = () => { ta.style.overflow = 'hidden'; ta.style.resize = 'none'; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+                                ta.addEventListener('input', resize);
+                                $nextTick(resize);
+                            }
+                        "
+                    >
+                        <flux:textarea wire:model="editFeatureDescription" rows="3" />
+                    </div>
+
+                    {{-- Full-screen description overlay --}}
+                    <div
+                        x-show="descExpanded"
+                        x-cloak
+                        data-fullscreen-overlay
+                        class="fixed inset-0 z-50 flex flex-col gap-4 bg-white p-6 dark:bg-zinc-900"
+                        @keydown.escape.window="descExpanded = false"
+                    >
+                        <span class="text-base font-semibold text-zinc-800 dark:text-zinc-200">{{ __('Description') }}</span>
+                        <textarea
+                            x-model="draft"
+                            @keydown.ctrl.enter.prevent.stop="$wire.editFeatureDescription = draft; $wire.updateFeature(); descExpanded = false"
+                            @keydown.meta.enter.prevent.stop="$wire.editFeatureDescription = draft; $wire.updateFeature(); descExpanded = false"
+                            class="flex-1 w-full resize-none rounded-xl border border-zinc-200 bg-white p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                            placeholder="{{ __('Enter description...') }}"
+                        ></textarea>
+                        <div class="flex justify-end gap-2">
+                            <flux:button type="button" @click="descExpanded = false">{{ __('Cancel') }}</flux:button>
+                            <flux:tooltip content="Ctrl+Enter">
+                                <flux:button variant="primary" type="button"
+                                    @click="$wire.editFeatureDescription = draft; $wire.updateFeature(); descExpanded = false"
+                                >{{ __('Save') }}</flux:button>
+                            </flux:tooltip>
+                        </div>
+                    </div>
+                </div>
 
                 <flux:select wire:model="editFeatureStatus" :label="__('Status')">
                     @foreach (FeatureStatus::cases() as $status)

@@ -381,6 +381,7 @@ test('new fields save on feature create', function () {
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->set('newFeatureName', 'TDD Feature')
+        ->set('newFeatureDescription', 'Covers the TDD workflow end to end.')
         ->set('newFeatureTdd', '1')
         ->set('newFeatureAiMode', 'Run tests first')
         ->set('newFeatureEnvironment', 'Staging')
@@ -390,6 +391,7 @@ test('new fields save on feature create', function () {
     $this->assertDatabaseHas('features', [
         'epic_id' => $epic->id,
         'name' => 'TDD Feature',
+        'description' => 'Covers the TDD workflow end to end.',
         'tdd' => true,
         'ai_mode' => 'Run tests first',
         'environment' => 'Staging',
@@ -402,6 +404,7 @@ test('new fields save on feature edit', function () {
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openEditFeature', $feature->id)
+        ->set('editFeatureDescription', 'Updated feature description.')
         ->set('editFeatureTdd', '0')
         ->set('editFeatureAiMode', 'Silent mode')
         ->set('editFeatureEnvironment', 'Production')
@@ -410,10 +413,28 @@ test('new fields save on feature edit', function () {
 
     $this->assertDatabaseHas('features', [
         'id' => $feature->id,
+        'description' => 'Updated feature description.',
         'tdd' => false,
         'ai_mode' => 'Silent mode',
         'environment' => 'Production',
     ]);
+});
+
+test('openEditFeature populates the description field for editing', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create(['description' => 'Existing description.']);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditFeature', $feature->id)
+        ->assertSet('editFeatureDescription', 'Existing description.');
+});
+
+test('feature description is shown on the board when present', function () {
+    $epic = Epic::factory()->create();
+    Feature::factory()->for($epic)->create(['description' => 'This spells out the whole spec.']);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->assertSee('This spells out the whole spec.');
 });
 
 test('new fields save on task create', function () {
@@ -1322,8 +1343,9 @@ test('epic and feature forms expose AI mode and notes as side-by-side full-scree
     // (regardless of which modal is actually open), each in its own
     // data-fullscreen-overlay div (which shortcuts.js's global Escape handler
     // must not navigate away from). The old cramped mobile-only markup and the
-    // desktop-only side panel must be gone.
-    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(4)
+    // desktop-only side panel must be gone. +1 for the feature description
+    // overlay (auto-grow + maximize, same pattern as the task description).
+    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(5)
         ->and($html)->toContain('wire:model="editFeatureAiMode"')
         ->toContain('wire:model="editEpicAiMode"')
         ->not->toContain('x-data="{ notesOpen: false }"')
@@ -1339,9 +1361,10 @@ test('task form exposes AI mode and notes as side-by-side full-screen links', fu
         ->call('openTask', $task->id)
         ->html();
 
-    // +1 AI-mode link, +1 notes link, +1 for the pre-existing description
-    // overlay - all only rendered once a task is selected.
-    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(7)
+    // +1 AI-mode link, +1 notes link, +1 for the pre-existing task description
+    // overlay - all only rendered once a task is selected. Plus the epic and
+    // feature's own AI-mode/notes/description overlays, which always render.
+    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(8)
         ->and($html)->toContain('wire:model="editTaskAiMode"')
         ->not->toContain('aiOpen:')
         ->not->toContain('x-data="{ notesOpen: false }"');
