@@ -1,7 +1,7 @@
 {
     "name": "Task Manager",
     "short_name": "Task Manager",
-    "start_url": "/dashboard",
+    "start_url": "/login",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#18181b",
