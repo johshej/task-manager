@@ -9,6 +9,15 @@ test('login screen can be rendered', function () {
     $response->assertOk();
 });
 
+test('login screen defaults remember me to checked so sessions persist across app reopens', function () {
+    $response = $this->get(route('login'));
+
+    $response->assertOk();
+    preg_match('/<ui-checkbox[^>]*name="remember"[^>]*>/', $response->getContent(), $matches);
+    expect($matches)->not->toBeEmpty()
+        ->and($matches[0])->toContain('checked="checked"');
+});
+
 test('users can authenticate using the login screen', function () {
     $user = User::factory()->create();
 
