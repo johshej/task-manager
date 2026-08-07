@@ -15,6 +15,28 @@
   let _boardCollapseAll = false;
   const resetSeq = () => { seq = ''; if (seqTimer) { clearTimeout(seqTimer); seqTimer = null; } };
 
+  // Shift+Arrow reorder dispatches a Livewire request, but the DOM doesn't
+  // reflect the new order until the response morphs it in. A repeat press
+  // before that round-trip finishes would otherwise read the same stale DOM
+  // order and recompute the same target index, so rapid presses collapse
+  // into a single visible move. Track the last dispatched index per item id
+  // so a same-item repeat press continues from there instead of the DOM.
+  const pendingMoveIndex = {};
+
+  function pendingIndexFor(id) {
+    return Object.prototype.hasOwnProperty.call(pendingMoveIndex, id) ? pendingMoveIndex[id].index : null;
+  }
+
+  function setPendingIndex(id, index) {
+    if (pendingMoveIndex[id]) clearTimeout(pendingMoveIndex[id].timer);
+    pendingMoveIndex[id] = { index, timer: setTimeout(function () { delete pendingMoveIndex[id]; }, 3000) };
+  }
+
+  function clearPendingIndex(id) {
+    if (pendingMoveIndex[id]) clearTimeout(pendingMoveIndex[id].timer);
+    delete pendingMoveIndex[id];
+  }
+
   const routes = window.AppRoutes || {};
 
   // Flux dropdowns (ui-menu, native [popover]) close themselves on Escape via
@@ -250,10 +272,12 @@
     const itemId = active.getAttribute('wire:sort:item');
     if (!itemId) return;
     const items = Array.from(document.querySelectorAll('[data-selectable]'));
-    const currentIndex = items.indexOf(active);
-    if (currentIndex < 0) return;
+    const domIndex = items.indexOf(active);
+    if (domIndex < 0) return;
+    const currentIndex = pendingIndexFor(itemId) ?? domIndex;
     const newIndex = Math.max(0, Math.min(items.length - 1, currentIndex + delta));
     if (newIndex === currentIndex) return;
+    setPendingIndex(itemId, newIndex);
     window.dispatchEvent(new CustomEvent('epic-reorder', { detail: { itemId, position: newIndex } }));
   }
 
@@ -266,10 +290,12 @@
     if (active.hasAttribute('data-feature-id')) {
       const featureId = active.getAttribute('data-feature-id');
       const headers = Array.from(document.querySelectorAll('[data-feature-id]'));
-      const currentIndex = headers.indexOf(active);
-      if (currentIndex < 0) return;
+      const domIndex = headers.indexOf(active);
+      if (domIndex < 0) return;
+      const currentIndex = pendingIndexFor(featureId) ?? domIndex;
       const newIndex = Math.max(0, Math.min(headers.length - 1, currentIndex + delta));
       if (newIndex === currentIndex) return;
+      setPendingIndex(featureId, newIndex);
       window.dispatchEvent(new CustomEvent('board-feature-reorder', { detail: { featureId, position: newIndex } }));
       return;
     }
@@ -278,10 +304,12 @@
     const list = active.closest('ul');
     if (taskId && list) {
       const tasks = Array.from(list.querySelectorAll('[data-selectable]'));
-      const currentIndex = tasks.indexOf(active);
-      if (currentIndex < 0) return;
+      const domIndex = tasks.indexOf(active);
+      if (domIndex < 0) return;
+      const currentIndex = pendingIndexFor(taskId) ?? domIndex;
       const newIndex = Math.max(0, Math.min(tasks.length - 1, currentIndex + delta));
       if (newIndex === currentIndex) return;
+      setPendingIndex(taskId, newIndex);
       window.dispatchEvent(new CustomEvent('board-task-reorder', { detail: { taskId, position: newIndex } }));
     }
   }
@@ -301,12 +329,14 @@
       const list = block ? block.closest('ul') : null;
       if (!block || !list) return;
       const blocks = Array.from(list.children).filter((el) => el.hasAttribute('wire:sort:item'));
-      const currentIndex = blocks.indexOf(block);
-      if (currentIndex < 0) return;
+      const domIndex = blocks.indexOf(block);
+      if (domIndex < 0) return;
+      const currentIndex = pendingIndexFor(featureId) ?? domIndex;
       const newIndex = Math.max(0, Math.min(blocks.length - 1, currentIndex + delta));
       if (newIndex === currentIndex) return;
       const statusValue = list.getAttribute('wire:sort:group-id');
       if (!statusValue) return;
+      setPendingIndex(featureId, newIndex);
       window.dispatchEvent(new CustomEvent('kanban-feature-reorder', { detail: { featureId, position: newIndex, statusValue } }));
       return;
     }
@@ -317,12 +347,14 @@
     // Match Livewire's own wire:sort indexing: only elements carrying
     // wire:sort:item count toward position (feature headers don't).
     const tasks = Array.from(list.children).filter((el) => el.hasAttribute('wire:sort:item'));
-    const currentIndex = tasks.indexOf(active);
-    if (currentIndex < 0) return;
+    const domIndex = tasks.indexOf(active);
+    if (domIndex < 0) return;
+    const currentIndex = pendingIndexFor(taskId) ?? domIndex;
     const newIndex = Math.max(0, Math.min(tasks.length - 1, currentIndex + delta));
     if (newIndex === currentIndex) return;
     const statusValue = list.getAttribute('wire:sort:group-id');
     if (!statusValue) return;
+    setPendingIndex(taskId, newIndex);
     window.dispatchEvent(new CustomEvent('kanban-task-reorder', { detail: { taskId, position: newIndex, statusValue } }));
   }
 
@@ -353,6 +385,7 @@
 
   document.addEventListener('board-sorted', function (e) {
     const { id, type } = e.detail;
+    clearPendingIndex(id);
     setTimeout(function () {
       let el = null;
       if (type === 'task') {
@@ -367,6 +400,7 @@
 
   document.addEventListener('epic-sorted', function (e) {
     const { id } = e.detail;
+    clearPendingIndex(id);
     setTimeout(function () {
       const el = Array.from(document.querySelectorAll('[data-selectable]'))
         .find(function (n) { return n.getAttribute('wire:sort:item') === id; });
