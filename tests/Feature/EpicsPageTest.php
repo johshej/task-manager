@@ -913,6 +913,52 @@ test('sortBoard does not affect tasks in other features', function () {
     expect($taskB->fresh()->order_index)->toBe(0);
 });
 
+test('sortBoard drops a task at the right spot when a status filter hides a sibling', function () {
+    // A(todo,0), B(done,1), C(todo,2). With the "todo" filter active, only
+    // A and C are visible/draggable. Dragging A to the end of the VISIBLE
+    // list (position 1, after C) must land it after C in the real order too
+    // - not silently reinsert it where the hidden B used to be, which would
+    // leave A still ahead of C and look like the drag did nothing.
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['status' => TaskStatus::Todo, 'order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['status' => TaskStatus::Done, 'order_index' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['status' => TaskStatus::Todo, 'order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('filterStatuses', [TaskStatus::Todo->value])
+        ->call('sortBoard', $taskA->id, 1);
+
+    expect($taskC->fresh()->order_index)->toBeLessThan($taskA->fresh()->order_index);
+});
+
+test('moveTaskToBottom respects the active status filter', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $taskA = Task::factory()->for($feature)->create(['status' => TaskStatus::Todo, 'order_index' => 0]);
+    $taskB = Task::factory()->for($feature)->create(['status' => TaskStatus::Done, 'order_index' => 1]);
+    $taskC = Task::factory()->for($feature)->create(['status' => TaskStatus::Todo, 'order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('filterStatuses', [TaskStatus::Todo->value])
+        ->call('moveTaskToBottom', $taskA->id);
+
+    expect($taskC->fresh()->order_index)->toBeLessThan($taskA->fresh()->order_index);
+});
+
+test('sortBoardFeature drops a feature at the right spot when a filter hides a sibling', function () {
+    $epic = Epic::factory()->create();
+    $featureA = Feature::factory()->for($epic)->create(['order_index' => 0]);
+    $featureB = Feature::factory()->for($epic)->create(['order_index' => 1]);
+    $featureC = Feature::factory()->for($epic)->create(['order_index' => 2]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('filterFeatureIds', [$featureA->id, $featureC->id])
+        ->call('sortBoardFeature', $featureA->id, 1);
+
+    expect($featureC->fresh()->order_index)->toBeLessThan($featureA->fresh()->order_index);
+});
+
 // ── Filter preferences ────────────────────────────────────────────────────────
 
 test('filter status preference is saved when filter changes', function () {

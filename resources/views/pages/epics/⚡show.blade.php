@@ -12,6 +12,7 @@ use App\Models\FeatureHistory;
 use App\Models\Task;
 use App\Models\TaskHistory;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
@@ -492,15 +493,32 @@ new #[Title('Epic Board')] class extends Component {
     {
         $task = Task::findOrFail($taskId);
 
-        $ids = Task::where('feature_id', $task->feature_id)
+        // $position is the index among tasks *currently visible* on the
+        // board (i.e. matching the active status filter, if any) - translate
+        // it into the correct insertion point in the feature's full
+        // (unfiltered) order, so tasks hidden by the filter don't throw off
+        // where the dragged task actually lands.
+        $visibleIds = Task::where('feature_id', $task->feature_id)
+            ->where('id', '!=', $taskId)
+            ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
+            ->orderBy('order_index')
+            ->pluck('id')
+            ->toArray();
+
+        $fullIds = Task::where('feature_id', $task->feature_id)
             ->where('id', '!=', $taskId)
             ->orderBy('order_index')
             ->pluck('id')
             ->toArray();
 
-        array_splice($ids, $position, 0, [$taskId]);
+        $position = max(0, min($position, count($visibleIds)));
+        $insertAt = $position < count($visibleIds)
+            ? array_search($visibleIds[$position], $fullIds)
+            : count($fullIds);
 
-        foreach ($ids as $idx => $id) {
+        array_splice($fullIds, $insertAt, 0, [$taskId]);
+
+        foreach ($fullIds as $idx => $id) {
             Task::where('id', $id)->update(['order_index' => $idx]);
         }
 
@@ -515,22 +533,54 @@ new #[Title('Epic Board')] class extends Component {
 
     public function moveTaskToBottom(string $taskId): void
     {
-        $featureId = Task::findOrFail($taskId)->feature_id;
+        $task = Task::findOrFail($taskId);
 
-        $this->sortBoard($taskId, Task::where('feature_id', $featureId)->count());
+        $visibleCount = Task::where('feature_id', $task->feature_id)
+            ->where('id', '!=', $taskId)
+            ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
+            ->count();
+
+        $this->sortBoard($taskId, $visibleCount);
+    }
+
+    /** @return Builder<Feature> */
+    private function visibleFeaturesQuery(): Builder
+    {
+        return Feature::where('epic_id', $this->epic->id)
+            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
+            ->when(count($this->filterStatuses), fn ($q) => $q->where(fn ($q) => $q
+                ->whereIn('status', $this->filterStatuses)
+                ->orWhereHas('tasks', fn ($q) => $q->whereIn('status', $this->filterStatuses))
+            ));
     }
 
     public function sortBoardFeature(string $featureId, int $position): void
     {
-        $ids = Feature::where('epic_id', $this->epic->id)
+        // $position is the index among features *currently visible* on the
+        // board (i.e. matching the active feature/status filters, if any) -
+        // translate it into the correct insertion point in the epic's full
+        // (unfiltered) order, so filtered-out features don't throw off where
+        // the dragged feature actually lands.
+        $visibleIds = $this->visibleFeaturesQuery()
             ->where('id', '!=', $featureId)
             ->orderBy('order_index')
             ->pluck('id')
             ->toArray();
 
-        array_splice($ids, $position, 0, [$featureId]);
+        $fullIds = Feature::where('epic_id', $this->epic->id)
+            ->where('id', '!=', $featureId)
+            ->orderBy('order_index')
+            ->pluck('id')
+            ->toArray();
 
-        foreach ($ids as $idx => $id) {
+        $position = max(0, min($position, count($visibleIds)));
+        $insertAt = $position < count($visibleIds)
+            ? array_search($visibleIds[$position], $fullIds)
+            : count($fullIds);
+
+        array_splice($fullIds, $insertAt, 0, [$featureId]);
+
+        foreach ($fullIds as $idx => $id) {
             Feature::where('id', $id)->update(['order_index' => $idx]);
         }
 
@@ -545,7 +595,9 @@ new #[Title('Epic Board')] class extends Component {
 
     public function moveFeatureToBottom(string $featureId): void
     {
-        $this->sortBoardFeature($featureId, $this->epic->features()->count());
+        $visibleCount = $this->visibleFeaturesQuery()->where('id', '!=', $featureId)->count();
+
+        $this->sortBoardFeature($featureId, $visibleCount);
     }
 
     public function sortKanban(string $taskId, int $position, string $statusValue): void
@@ -674,12 +726,7 @@ new #[Title('Epic Board')] class extends Component {
     #[Computed]
     public function features(): Collection
     {
-        return $this->epic->features()
-            ->when(count($this->filterFeatureIds), fn ($q) => $q->whereIn('id', $this->filterFeatureIds))
-            ->when(count($this->filterStatuses), fn ($q) => $q->where(fn ($q) => $q
-                ->whereIn('status', $this->filterStatuses)
-                ->orWhereHas('tasks', fn ($q) => $q->whereIn('status', $this->filterStatuses))
-            ))
+        return $this->visibleFeaturesQuery()
             ->with(['tasks' => fn ($q) => $q
                 ->when(count($this->filterStatuses), fn ($q) => $q->whereIn('status', $this->filterStatuses))
                 ->orderBy('order_index')
