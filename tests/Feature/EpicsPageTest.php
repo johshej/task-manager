@@ -1077,6 +1077,20 @@ test('closeTask redirects back to board with task highlighted', function () {
         ->call('openTask', $task->id)
         ->call('closeTask')
         ->assertRedirect(route('epics.board', $epic));
+
+    expect(session('highlighted_id'))->toBe($task->id);
+});
+
+test('closeEditFeature redirects back to board with the feature highlighted', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditFeature', $feature->id)
+        ->call('closeEditFeature')
+        ->assertRedirect(route('epics.board', $epic));
+
+    expect(session('highlighted_id'))->toBe($feature->id);
 });
 
 test('deleteTask selects next sibling task after deletion', function () {

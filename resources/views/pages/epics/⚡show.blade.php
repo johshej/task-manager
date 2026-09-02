@@ -278,6 +278,9 @@ new #[Title('Epic Board')] class extends Component {
 
     public function closeEditFeature(): void
     {
+        if ($this->editingFeatureId) {
+            session()->flash('highlighted_id', $this->editingFeatureId);
+        }
         $this->redirect(route('epics.board', $this->epic), navigate: true);
     }
 
