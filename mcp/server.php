@@ -13,7 +13,7 @@ declare(strict_types=1);
  *
  * Tools mirror the task-manager-client skill:
  *   - task_get         — get a task
- *   - task_start       — mark in_progress + set ACTIVE_TASK_ID in .task-manager
+ *   - task_start       — mark active + set ACTIVE_TASK_ID in .task-manager
  *   - task_status      — set task status
  *   - task_note        — add note to task history
  *   - task_complete    — mark done + add summary note + clear ACTIVE_TASK_ID
@@ -159,11 +159,11 @@ function tm_tools(): array
         ['name' => 'task_get', 'description' => 'Get a task by id.',
             'inputSchema' => ['type' => 'object', 'properties' => ['task_id' => $idProp, 'cwd' => $cwdProp]]],
 
-        ['name' => 'task_start', 'description' => 'Start a task: PATCH status=in_progress and write ACTIVE_TASK_ID into .task-manager.',
+        ['name' => 'task_start', 'description' => 'Start a task: PATCH status=active and write ACTIVE_TASK_ID into .task-manager.',
             'inputSchema' => ['type' => 'object', 'required' => ['task_id'],
                 'properties' => ['task_id' => $idProp, 'cwd' => $cwdProp]]],
 
-        ['name' => 'task_status', 'description' => 'Set task status (todo|in_progress|blocked|building_automated_tests|running_automated_tests|done|merged_to_staging|deployed_to_staging|merged_to_master|deployed_to_master).',
+        ['name' => 'task_status', 'description' => 'Set task status (todo|active|blocked|building_automated_tests|running_automated_tests|done|archived|merged_to_staging|deployed_to_staging|merged_to_master|deployed_to_master).',
             'inputSchema' => ['type' => 'object', 'required' => ['status'],
                 'properties' => ['task_id' => $idProp, 'status' => ['type' => 'string'], 'cwd' => $cwdProp]]],
 
@@ -247,7 +247,7 @@ function tm_call_tool(string $name, array $args): array
 
         case 'task_start':
             $id = $args['task_id'];
-            $res = tm_http($cfg, 'PATCH', "/tasks/$id/status", ['status' => 'in_progress']);
+            $res = tm_http($cfg, 'PATCH', "/tasks/$id/status", ['status' => 'active']);
             tm_set_active($cfg, $id, null);
 
             return ['ok' => true, 'task' => $res, 'active_task_id' => $id];

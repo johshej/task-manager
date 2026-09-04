@@ -209,7 +209,7 @@ test('can update a task from the board', function () {
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openTask', $task->id)
         ->set('editTaskTitle', 'Updated Title')
-        ->set('editTaskStatus', TaskStatus::InProgress->value)
+        ->set('editTaskStatus', TaskStatus::Active->value)
         ->set('editTaskPriority', 7)
         ->call('saveTask')
         ->assertHasNoErrors();
@@ -217,7 +217,7 @@ test('can update a task from the board', function () {
     $this->assertDatabaseHas('tasks', [
         'id' => $task->id,
         'title' => 'Updated Title',
-        'status' => TaskStatus::InProgress->value,
+        'status' => TaskStatus::Active->value,
     ]);
 });
 
@@ -320,13 +320,13 @@ test('full UI flow: epic with SSH URL, feature, task, status change, and user hi
     // Edit the task status
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->call('openTask', $task->id)
-        ->set('editTaskStatus', TaskStatus::InProgress->value)
+        ->set('editTaskStatus', TaskStatus::Active->value)
         ->call('saveTask')
         ->assertHasNoErrors();
 
     $this->assertDatabaseHas('tasks', [
         'id' => $task->id,
-        'status' => TaskStatus::InProgress->value,
+        'status' => TaskStatus::Active->value,
     ]);
 
     // History is attributed to the logged-in user
@@ -534,12 +534,12 @@ test('null tdd on all ancestors resolves to null', function () {
 test('kanban view renders status columns', function () {
     $epic = Epic::factory()->create();
     $feature = Feature::factory()->for($epic)->create();
-    Task::factory()->for($feature)->create(['title' => 'Kanban Task', 'status' => TaskStatus::InProgress]);
+    Task::factory()->for($feature)->create(['title' => 'Kanban Task', 'status' => TaskStatus::Active]);
 
     Livewire::test('pages::epics.show', ['epic' => $epic])
         ->set('viewMode', 'kanban')
         ->assertSee('Kanban Task')
-        ->assertSee('In Progress');
+        ->assertSee('Active');
 });
 
 test('sortKanban updates task status', function () {
@@ -1034,7 +1034,7 @@ test('board shows AI badge for AI-changed tasks', function () {
         'actor_type' => ActorType::Ai,
         'action' => HistoryAction::StatusChanged,
         'old_values' => ['status' => TaskStatus::Todo->value],
-        'new_values' => ['status' => TaskStatus::InProgress->value],
+        'new_values' => ['status' => TaskStatus::Active->value],
         'created_at' => now(),
     ]);
 

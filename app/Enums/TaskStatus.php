@@ -5,7 +5,7 @@ namespace App\Enums;
 enum TaskStatus: string
 {
     case Todo = 'todo';
-    case InProgress = 'in_progress';
+    case Active = 'active';
     case Blocked = 'blocked';
     case BuildingAutomatedTests = 'building_automated_tests';
     case RunningAutomatedTests = 'running_automated_tests';
@@ -20,7 +20,7 @@ enum TaskStatus: string
     {
         return match ($this) {
             self::Todo => 'To Do',
-            self::InProgress => 'In Progress',
+            self::Active => 'Active',
             self::Blocked => 'Blocked',
             self::BuildingAutomatedTests => 'Building Tests',
             self::RunningAutomatedTests => 'Running Tests',
@@ -37,7 +37,7 @@ enum TaskStatus: string
     {
         return match ($this) {
             self::Todo => 'zinc',
-            self::InProgress => 'blue',
+            self::Active => 'blue',
             self::Blocked => 'red',
             self::BuildingAutomatedTests => 'amber',
             self::RunningAutomatedTests => 'purple',

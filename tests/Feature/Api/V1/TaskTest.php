@@ -109,9 +109,9 @@ test('can patch task status', function () {
     $task = Task::factory()->todo()->for($this->feature)->create();
 
     $this->withToken($this->token)
-        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::InProgress->value])
+        ->patchJson("/api/v1/tasks/{$task->id}/status", ['status' => TaskStatus::Active->value])
         ->assertSuccessful()
-        ->assertJsonPath('data.status', TaskStatus::InProgress->value);
+        ->assertJsonPath('data.status', TaskStatus::Active->value);
 
     $this->assertDatabaseHas('task_histories', [
         'task_id' => $task->id,
