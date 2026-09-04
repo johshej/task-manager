@@ -54,6 +54,33 @@ test('board hides features with no matching tasks and non-matching feature statu
         ->assertDontSee('Todo task');
 });
 
+// ── Archived status filter ────────────────────────────────────────────────────
+
+test('filter panel offers Archived as a status option', function () {
+    Livewire::test('pages::epics.⚡show', ['epic' => $this->epic])
+        ->set('showFilters', true)
+        ->assertSee('Archived');
+});
+
+test('board shows only archived tasks when filtering by archived', function () {
+    $feature = Feature::factory()->for($this->epic)->create(['name' => 'Mixed Feature', 'status' => FeatureStatus::Active]);
+    Task::factory()->for($feature)->create(['title' => 'Todo task', 'status' => TaskStatus::Todo]);
+    Task::factory()->for($feature)->create(['title' => 'Archived task', 'status' => TaskStatus::Archived]);
+
+    Livewire::test('pages::epics.⚡show', ['epic' => $this->epic])
+        ->set('filterStatuses', [TaskStatus::Archived->value])
+        ->assertSee('Archived task')
+        ->assertDontSee('Todo task');
+});
+
+test('board shows an archived feature with no tasks when filtering by archived', function () {
+    Feature::factory()->for($this->epic)->create(['name' => 'Archived Feature', 'status' => FeatureStatus::Archived]);
+
+    Livewire::test('pages::epics.⚡show', ['epic' => $this->epic])
+        ->set('filterStatuses', [TaskStatus::Archived->value])
+        ->assertSee('Archived Feature');
+});
+
 // ── Feature status filter ─────────────────────────────────────────────────────
 
 test('board shows a done feature even when it has no done tasks', function () {

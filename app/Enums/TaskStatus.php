@@ -10,6 +10,7 @@ enum TaskStatus: string
     case BuildingAutomatedTests = 'building_automated_tests';
     case RunningAutomatedTests = 'running_automated_tests';
     case Done = 'done';
+    case Archived = 'archived';
     case MergedToStaging = 'merged_to_staging';
     case DeployedToStaging = 'deployed_to_staging';
     case MergedToMaster = 'merged_to_master';
@@ -24,6 +25,7 @@ enum TaskStatus: string
             self::BuildingAutomatedTests => 'Building Tests',
             self::RunningAutomatedTests => 'Running Tests',
             self::Done => 'Done',
+            self::Archived => 'Archived',
             self::MergedToStaging => 'Merged to Staging',
             self::DeployedToStaging => 'Deployed to Staging',
             self::MergedToMaster => 'Merged to Master',
@@ -40,6 +42,7 @@ enum TaskStatus: string
             self::BuildingAutomatedTests => 'amber',
             self::RunningAutomatedTests => 'purple',
             self::Done => 'green',
+            self::Archived => 'zinc',
             self::MergedToStaging => 'cyan',
             self::DeployedToStaging => 'teal',
             self::MergedToMaster => 'indigo',
