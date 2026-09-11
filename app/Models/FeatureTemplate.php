@@ -33,4 +33,19 @@ class FeatureTemplate extends Model
     {
         return $this->hasMany(EpicTemplateFeature::class);
     }
+
+    /** A real copy: a new template with copies of all tasks. */
+    public function duplicate(): self
+    {
+        $copy = $this->replicate();
+        $copy->save();
+
+        $this->tasks()->orderBy('order_index')->get()->each(function ($task) use ($copy) {
+            $taskCopy = $task->replicate(['feature_template_id']);
+            $taskCopy->featureTemplate()->associate($copy);
+            $taskCopy->save();
+        });
+
+        return $copy;
+    }
 }

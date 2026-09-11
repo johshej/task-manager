@@ -57,16 +57,20 @@ test('adding the same feature template twice does not duplicate the link', funct
     expect(EpicTemplateFeature::where('epic_template_id', $epicTemplate->id)->count())->toBe(1);
 });
 
-test('available feature templates excludes ones already linked', function () {
+test('available feature templates excludes ones linked to any epic template', function () {
     $epicTemplate = EpicTemplate::factory()->create();
     $linked = FeatureTemplate::factory()->create(['name' => 'Linked']);
     $available = FeatureTemplate::factory()->create(['name' => 'Available']);
     $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $linked->id, 'order_index' => 0]);
 
+    $linkedElsewhere = FeatureTemplate::factory()->create(['name' => 'Linked Elsewhere']);
+    EpicTemplate::factory()->create()->epicTemplateFeatures()->create(['feature_template_id' => $linkedElsewhere->id, 'order_index' => 0]);
+
     $ids = Livewire::test('pages::templates.epic', ['epicTemplate' => $epicTemplate])
         ->instance()->availableFeatureTemplates()->pluck('id');
 
     expect($ids)->not->toContain($linked->id)
+        ->and($ids)->not->toContain($linkedElsewhere->id)
         ->and($ids)->toContain($available->id);
 });
 
@@ -95,20 +99,37 @@ test('sortEpicTemplateFeatures reorders links', function () {
     expect($linkA->fresh()->order_index)->toBe(1);
 });
 
-test('pasteFeatureTemplate in copy mode links without touching the source', function () {
+test('pasteFeatureTemplate in copy mode duplicates the feature template', function () {
     $sourceEpicTemplate = EpicTemplate::factory()->create();
     $destinationEpicTemplate = EpicTemplate::factory()->create();
-    $featureTemplate = FeatureTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create(['name' => 'Copied Feature']);
+    $featureTemplate->tasks()->create(['title' => 'First task', 'order_index' => 0]);
     $sourceLink = $sourceEpicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplate->id, 'order_index' => 0]);
 
     Livewire::test('pages::templates.epic', ['epicTemplate' => $destinationEpicTemplate])
         ->call('pasteFeatureTemplate', $featureTemplate->id, 'copy', $sourceLink->id);
 
     $this->assertModelExists($sourceLink);
-    $this->assertDatabaseHas('epic_template_features', [
-        'epic_template_id' => $destinationEpicTemplate->id,
-        'feature_template_id' => $featureTemplate->id,
-    ]);
+
+    $copyLink = $destinationEpicTemplate->epicTemplateFeatures()->with('featureTemplate.tasks')->first();
+    expect($copyLink)->not->toBeNull();
+    expect($copyLink->feature_template_id)->not->toBe($featureTemplate->id);
+    expect($copyLink->featureTemplate->name)->toBe('Copied Feature');
+    expect($copyLink->featureTemplate->tasks->pluck('title')->all())->toBe(['First task']);
+});
+
+test('deleting the original feature template leaves a pasted copy in the epic template', function () {
+    $destinationEpicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create(['name' => 'Survivor']);
+
+    Livewire::test('pages::templates.epic', ['epicTemplate' => $destinationEpicTemplate])
+        ->call('pasteFeatureTemplate', $featureTemplate->id, 'copy', null);
+
+    $featureTemplate->delete();
+
+    $copyLink = $destinationEpicTemplate->epicTemplateFeatures()->with('featureTemplate')->first();
+    expect($copyLink)->not->toBeNull();
+    expect($copyLink->featureTemplate->name)->toBe('Survivor');
 });
 
 test('pasteFeatureTemplate in cut mode moves the link to the destination', function () {
