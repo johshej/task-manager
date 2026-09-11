@@ -580,6 +580,7 @@
         const a = currentActive();
         if (a) { const btn = a.querySelector('[data-copy-btn]'); if (btn) btn.click(); }
       }
+      if (e.key === 'v') { e.preventDefault(); handled = true; shortcut('paste-feature-template'); }
     }
 
     if (view === 'feature-template') {

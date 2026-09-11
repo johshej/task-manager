@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\EpicTemplate;
+use App\Models\EpicTemplateFeature;
 use App\Models\FeatureTemplate;
 use Flux\Flux;
 use Illuminate\Support\Collection;
@@ -99,6 +100,29 @@ new #[Title('Templates')] class extends Component {
             ->get();
     }
 
+    public function pasteFeatureTemplate(string $featureTemplateId, string $mode, ?string $sourceLinkId = null): void
+    {
+        $template = FeatureTemplate::find($featureTemplateId);
+        if (! $template) {
+            Flux::toast(variant: 'danger', text: 'That feature template no longer exists.');
+            $this->dispatch('feature-template-pasted', mode: $mode);
+
+            return;
+        }
+
+        if ($mode === 'copy') {
+            // Copy means copy: an independent, unconnected duplicate.
+            $template->duplicate();
+        } elseif ($mode === 'cut' && $sourceLinkId) {
+            // Cut means move: unlink it from its epic template.
+            EpicTemplateFeature::where('id', $sourceLinkId)->delete();
+        }
+
+        unset($this->featureTemplates, $this->epicTemplates);
+        Flux::toast(variant: 'success', text: 'Feature template pasted.');
+        $this->dispatch('feature-template-pasted', mode: $mode);
+    }
+
     /** @return Collection<int, EpicTemplate> */
     #[Computed]
     public function epicTemplates(): Collection
@@ -117,11 +141,36 @@ new #[Title('Templates')] class extends Component {
     <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
             <flux:heading size="lg">{{ __('Feature templates') }}</flux:heading>
-            <flux:tooltip content="+ / N">
-                <flux:modal.trigger name="create-feature-template" data-shortcut="new-feature-template">
-                    <flux:button variant="primary" size="sm" icon="plus">{{ __('New feature template') }}</flux:button>
-                </flux:modal.trigger>
-            </flux:tooltip>
+            <div class="flex items-center gap-1"
+                x-data="{
+                    clip: JSON.parse(localStorage.getItem('templateClipboard') || 'null'),
+                    refresh() { this.clip = JSON.parse(localStorage.getItem('templateClipboard') || 'null'); },
+                }"
+                x-on:livewire:navigated.window="refresh()"
+                x-on:feature-template-pasted.window="if ($event.detail.mode === 'cut') { localStorage.removeItem('templateClipboard'); refresh(); }"
+            >
+                <template x-if="clip">
+                    <div class="flex items-center gap-1">
+                        <flux:tooltip content="V">
+                            <flux:button
+                                variant="ghost"
+                                size="sm"
+                                icon="clipboard"
+                                data-shortcut="paste-feature-template"
+                                x-on:click="$wire.pasteFeatureTemplate(clip.featureTemplateId, clip.mode, clip.sourceLinkId ?? null)"
+                            ><span x-text="'{{ __('Paste') }}: ' + clip.featureTemplateName"></span></flux:button>
+                        </flux:tooltip>
+                        <flux:tooltip :content="__('Clear clipboard')">
+                            <flux:button variant="ghost" size="sm" icon="x-mark" x-on:click="localStorage.removeItem('templateClipboard'); clip = null" />
+                        </flux:tooltip>
+                    </div>
+                </template>
+                <flux:tooltip content="+ / N">
+                    <flux:modal.trigger name="create-feature-template" data-shortcut="new-feature-template">
+                        <flux:button variant="primary" size="sm" icon="plus">{{ __('New feature template') }}</flux:button>
+                    </flux:modal.trigger>
+                </flux:tooltip>
+            </div>
         </div>
 
         <div class="space-y-2" data-list="feature-templates">
