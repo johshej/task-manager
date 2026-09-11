@@ -1405,7 +1405,9 @@ test('epic and feature forms expose AI mode and notes as side-by-side full-scree
     // must not navigate away from). The old cramped mobile-only markup and the
     // desktop-only side panel must be gone. +1 for the feature description
     // overlay (auto-grow + maximize, same pattern as the task description).
-    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(5)
+    // +2 for the create-feature and create-task modals' own AI-mode links,
+    // which also always render regardless of which modal is open.
+    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(7)
         ->and($html)->toContain('wire:model="editFeatureAiMode"')
         ->toContain('wire:model="editEpicAiMode"')
         ->not->toContain('x-data="{ notesOpen: false }"')
@@ -1423,9 +1425,32 @@ test('task form exposes AI mode and notes as side-by-side full-screen links', fu
 
     // +1 AI-mode link, +1 notes link, +1 for the pre-existing task description
     // overlay - all only rendered once a task is selected. Plus the epic and
-    // feature's own AI-mode/notes/description overlays, which always render.
-    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(8)
+    // feature's own AI-mode/notes/description overlays, and the create-feature
+    // and create-task modals' own AI-mode links, all of which always render.
+    expect(substr_count($html, 'data-fullscreen-overlay'))->toBe(10)
         ->and($html)->toContain('wire:model="editTaskAiMode"')
         ->not->toContain('aiOpen:')
         ->not->toContain('x-data="{ notesOpen: false }"');
+});
+
+test('AI mode still saves correctly on create feature and create task once tucked behind a full-screen link', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('newFeatureName', 'Feature With AI Mode')
+        ->set('newFeatureAiMode', 'Be extra careful')
+        ->call('createFeature')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('features', ['name' => 'Feature With AI Mode', 'ai_mode' => 'Be extra careful']);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openAddTask', $feature->id)
+        ->set('newTaskTitle', 'Task With AI Mode')
+        ->set('newTaskAiMode', 'Be extra careful too')
+        ->call('createTask')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('tasks', ['title' => 'Task With AI Mode', 'ai_mode' => 'Be extra careful too']);
 });

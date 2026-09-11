@@ -1245,7 +1245,7 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- Edit Epic Modal --}}
     <flux:modal name="edit-epic" focusable class="modal-fullscreen" x-on:close="$wire.closeEditEpic()">
-        <div class="mx-auto flex h-full w-full max-w-lg flex-col overflow-y-auto">
+        <div class="mx-auto flex h-full w-full max-w-lg flex-col overflow-y-auto px-1 lg:max-w-4xl">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit epic') }}</flux:heading>
 
             <form wire:submit="updateEpic" id="edit-epic-form" class="flex-1 space-y-5"
@@ -1298,7 +1298,7 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- Create Feature Modal --}}
     <flux:modal name="create-feature" focusable class="modal-fullscreen">
-        <div class="mx-auto flex h-full w-full max-w-lg flex-col justify-center overflow-y-auto">
+        <div class="mx-auto flex h-full w-full max-w-lg flex-col justify-center overflow-y-auto px-1 lg:max-w-4xl">
             <form wire:submit="createFeature" class="space-y-5"
                 @keydown.ctrl.enter.prevent="$wire.createFeature()"
                 @keydown.meta.enter.prevent="$wire.createFeature()"
@@ -1329,7 +1329,9 @@ new #[Title('Epic Board')] class extends Component {
                     </flux:select>
                 </div>
 
-                <flux:textarea wire:model="newFeatureAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$epic->ai_mode ? __('Inherits: ').$epic->ai_mode : __('Describe how AI should behave...')" />
+                <x-fullscreen-link :label="__('AI mode (optional)')" heading="AI mode" icon="cpu-chip">
+                    <flux:textarea wire:model="newFeatureAiMode" class="flex-1" rows="6" :placeholder="$epic->ai_mode ? __('Inherits: ').$epic->ai_mode : __('Describe how AI should behave...')" />
+                </x-fullscreen-link>
 
                 <div class="flex justify-end gap-2">
                     <flux:modal.close>
@@ -1345,7 +1347,7 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- Edit Feature Modal --}}
     <flux:modal name="edit-feature" focusable class="modal-fullscreen" x-on:close="$wire.closeEditFeature()">
-        <div class="mx-auto flex h-full w-full max-w-lg flex-col overflow-y-auto">
+        <div class="mx-auto flex h-full w-full max-w-lg flex-col overflow-y-auto px-1 lg:max-w-4xl">
             <flux:heading size="lg" class="mb-5 shrink-0">{{ __('Edit feature') }}</flux:heading>
 
             <form wire:submit="updateFeature" id="edit-feature-form" class="flex-1 space-y-5"
@@ -1456,7 +1458,7 @@ new #[Title('Epic Board')] class extends Component {
 
     {{-- Create Task Modal --}}
     <flux:modal name="create-task" focusable class="modal-fullscreen">
-        <div class="mx-auto flex h-full w-full max-w-lg flex-col justify-center overflow-y-auto">
+        <div class="mx-auto flex h-full w-full max-w-lg flex-col justify-center overflow-y-auto px-1 lg:max-w-4xl">
             <form wire:submit="createTask" class="space-y-5"
                 @keydown.ctrl.enter.prevent="$wire.createTask()"
                 @keydown.meta.enter.prevent="$wire.createTask()"
@@ -1494,7 +1496,9 @@ new #[Title('Epic Board')] class extends Component {
                 </div>
 
                 @php $ram = $this->addingTaskForFeature?->resolvedAiMode(); @endphp
-                <flux:textarea wire:model="newTaskAiMode" :label="__('AI mode (optional)')" rows="2" :placeholder="$ram ? __('Inherits: ').$ram : __('Describe how AI should behave...')" />
+                <x-fullscreen-link :label="__('AI mode (optional)')" heading="AI mode" icon="cpu-chip">
+                    <flux:textarea wire:model="newTaskAiMode" class="flex-1" rows="6" :placeholder="$ram ? __('Inherits: ').$ram : __('Describe how AI should behave...')" />
+                </x-fullscreen-link>
 
                 <div class="flex justify-end gap-2">
                     <flux:modal.close>
