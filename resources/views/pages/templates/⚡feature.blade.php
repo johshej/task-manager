@@ -199,7 +199,10 @@ new #[Title('Feature Template')] class extends Component {
         <flux:heading size="xl">{{ __('Feature template') }}</flux:heading>
     </div>
 
-    <form wire:submit="updateFeatureTemplate" class="space-y-5 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+    <form wire:submit="updateFeatureTemplate" class="space-y-5 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700"
+        @keydown.ctrl.enter.prevent="$wire.updateFeatureTemplate()"
+        @keydown.meta.enter.prevent="$wire.updateFeatureTemplate()"
+    >
         <flux:input wire:model="editName" :label="__('Name')" required />
         <flux:textarea wire:model="editDescription" :label="__('Description (optional)')" rows="3" />
 
@@ -223,14 +226,16 @@ new #[Title('Feature Template')] class extends Component {
         </x-fullscreen-link>
 
         <div class="flex justify-end">
-            <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
+            <flux:tooltip content="Ctrl+Enter">
+                <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
+            </flux:tooltip>
         </div>
     </form>
 
     <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
             <flux:heading size="lg">{{ __('Subtasks') }}</flux:heading>
-            <flux:button variant="primary" size="sm" icon="plus" wire:click="openAddTask">{{ __('Add task') }}</flux:button>
+            <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-template-task" wire:click="openAddTask">{{ __('Add task') }}</flux:button>
         </div>
 
         <ul
@@ -242,6 +247,7 @@ new #[Title('Feature Template')] class extends Component {
                 <li
                     wire:key="template-task-{{ $task->id }}"
                     wire:sort:item="{{ $task->id }}"
+                    data-selectable
                     class="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                     <button type="button" wire:sort:handle class="block shrink-0 cursor-grab appearance-none border-0 bg-transparent p-0 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
@@ -255,8 +261,8 @@ new #[Title('Feature Template')] class extends Component {
                         <div class="truncate text-sm font-medium">{{ $task->title }}</div>
                         <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
                     </div>
-                    <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEditTask('{{ $task->id }}')" />
-                    <flux:button variant="ghost" size="sm" icon="trash" wire:click="confirmDeleteTask('{{ $task->id }}')" />
+                    <flux:button variant="ghost" size="sm" icon="pencil" data-edit-btn wire:click="openEditTask('{{ $task->id }}')" />
+                    <flux:button variant="ghost" size="sm" icon="trash" data-delete-btn wire:click="confirmDeleteTask('{{ $task->id }}')" />
                 </li>
             @empty
                 <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-10 dark:border-zinc-700 dark:bg-zinc-900/50">
@@ -268,7 +274,10 @@ new #[Title('Feature Template')] class extends Component {
 
     {{-- Create Task Modal --}}
     <flux:modal name="create-template-task" :show="$errors->isNotEmpty()" focusable class="md:w-[480px]">
-        <form wire:submit="createTask" class="space-y-5">
+        <form wire:submit="createTask" class="space-y-5"
+            @keydown.ctrl.enter.prevent="$wire.createTask()"
+            @keydown.meta.enter.prevent="$wire.createTask()"
+        >
             <flux:heading size="lg">{{ __('New task') }}</flux:heading>
             <flux:input wire:model="newTaskTitle" :label="__('Title')" autofocus required />
             <flux:textarea wire:model="newTaskDescription" :label="__('Description (optional)')" rows="3" />
@@ -277,14 +286,19 @@ new #[Title('Feature Template')] class extends Component {
                 <flux:modal.close>
                     <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
-                <flux:button variant="primary" type="submit">{{ __('Add task') }}</flux:button>
+                <flux:tooltip content="Ctrl+Enter">
+                    <flux:button variant="primary" type="submit">{{ __('Add task') }}</flux:button>
+                </flux:tooltip>
             </div>
         </form>
     </flux:modal>
 
     {{-- Edit Task Modal --}}
     <flux:modal name="edit-template-task" :show="$errors->isNotEmpty()" focusable class="md:w-[480px]">
-        <form wire:submit="updateTask" class="space-y-5">
+        <form wire:submit="updateTask" class="space-y-5"
+            @keydown.ctrl.enter.prevent="$wire.updateTask()"
+            @keydown.meta.enter.prevent="$wire.updateTask()"
+        >
             <flux:heading size="lg">{{ __('Edit task') }}</flux:heading>
             <flux:input wire:model="editTaskTitle" :label="__('Title')" autofocus required />
             <flux:textarea wire:model="editTaskDescription" :label="__('Description (optional)')" rows="3" />
@@ -293,7 +307,9 @@ new #[Title('Feature Template')] class extends Component {
                 <flux:modal.close>
                     <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
-                <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
+                <flux:tooltip content="Ctrl+Enter">
+                    <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
+                </flux:tooltip>
             </div>
         </form>
     </flux:modal>

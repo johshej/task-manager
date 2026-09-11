@@ -107,7 +107,9 @@
         @fluxScripts
         <script>
             window.AppRoutes = {
+                dashboard: '{{ route('dashboard') }}',
                 epics: '{{ route('epics') }}',
+                templates: '{{ route('templates') }}',
                 settings: '{{ route('profile.edit') }}',
             };
         </script>

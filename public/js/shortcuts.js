@@ -63,6 +63,8 @@
           <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Global</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">g</kbd> → <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Go to Epics</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">g</kbd> → <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">t</kbd> &nbsp; Go to Templates</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">g</kbd> → <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">d</kbd> &nbsp; Go to Dashboard</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">g</kbd> → <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">s</kbd> &nbsp; Go to Settings</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">?</kbd> &nbsp; This help</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Esc</kbd> &nbsp; Back / close</div>
@@ -98,6 +100,15 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Navigate options</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Space</kbd> &nbsp; Toggle filter</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Esc</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">f</kbd> &nbsp; Close &amp; return</div>
+          </div>
+          <div>
+            <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Templates</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select template</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit selected (list only)</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Delete</kbd> &nbsp; Delete / remove selected</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> &nbsp; New (feature or epic template, or task/link on a template page)</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Ctrl</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Save form</div>
           </div>
         </div>
       </div>
@@ -145,9 +156,11 @@
 
   function selectFirst(selector) {
     const container = document.querySelector(selector);
-    if (!container) return;
+    if (!container) return false;
     const items = container.querySelectorAll('[data-selectable]');
-    if (items.length) setActive(items[0]);
+    if (!items.length) return false;
+    setActive(items[0]);
+    return true;
   }
 
   // Clicking a feature/task/epic row also selects it, so keyboard nav
@@ -534,6 +547,64 @@
       }
     }
 
+    if (view === 'templates-index') {
+      if (e.key === 'ArrowUp')   { e.preventDefault(); handled = true; moveSelection(-1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); handled = true; moveSelection(1); }
+      if (e.key === 'Enter') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a && a.dataset.href) goto(a.dataset.href);
+      }
+      if (e.key === 'e') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-edit-btn]'); if (btn) btn.click(); }
+      }
+      if (e.key === 'Delete') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-delete-btn]'); if (btn) btn.click(); }
+      }
+      if (e.key === 'n') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        const inEpicTemplates = !!a && !!a.closest('[data-list="epic-templates"]');
+        shortcut(inEpicTemplates ? 'new-epic-template' : 'new-feature-template');
+      }
+    }
+
+    if (view === 'feature-template') {
+      if (e.key === 'ArrowUp')   { e.preventDefault(); handled = true; moveSelection(-1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); handled = true; moveSelection(1); }
+      if (e.key === 'Enter' || e.key === 'e') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-edit-btn]'); if (btn) btn.click(); }
+      }
+      if (e.key === 'Delete') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-delete-btn]'); if (btn) btn.click(); }
+      }
+      if (e.key === 'n') { e.preventDefault(); handled = true; shortcut('add-template-task'); }
+    }
+
+    if (view === 'epic-template') {
+      if (e.key === 'ArrowUp')   { e.preventDefault(); handled = true; moveSelection(-1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); handled = true; moveSelection(1); }
+      if (e.key === 'Enter') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a && a.dataset.href) goto(a.dataset.href);
+      }
+      if (e.key === 'Delete') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-delete-btn]'); if (btn) btn.click(); }
+      }
+      if (e.key === 'n') { e.preventDefault(); handled = true; shortcut('add-feature-template'); }
+    }
+
     return handled;
   }
 
@@ -573,6 +644,8 @@
     // Sequences: second key — checked before per-view handlers so "g" then "e"/"s"
     // always navigates, even on views where "e" is also a per-view shortcut (e.g. edit).
     if (seq === 'g' && e.key === 'e') { e.preventDefault(); if (routes.epics) goto(routes.epics); resetSeq(); return; }
+    if (seq === 'g' && e.key === 't') { e.preventDefault(); if (routes.templates) goto(routes.templates); resetSeq(); return; }
+    if (seq === 'g' && e.key === 'd') { e.preventDefault(); if (routes.dashboard) goto(routes.dashboard); resetSeq(); return; }
     if (seq === 'g' && e.key === 's') { e.preventDefault(); if (routes.settings) goto(routes.settings); resetSeq(); return; }
 
     if (handlePerView(e)) return;
@@ -591,6 +664,7 @@
   function init() {
     const view = getView();
     if (view === 'epics-index') selectFirst('[data-list="epics"]');
+    if (view === 'templates-index') selectFirst('[data-list="feature-templates"]') || selectFirst('[data-list="epic-templates"]');
     const highlighted = document.querySelector('[data-selectable][data-highlighted]');
     if (highlighted) setTimeout(() => setActive(highlighted), 0);
   }

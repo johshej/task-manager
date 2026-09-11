@@ -154,7 +154,10 @@ new #[Title('Epic Template')] class extends Component {
         <flux:heading size="xl">{{ __('Epic template') }}</flux:heading>
     </div>
 
-    <form wire:submit="updateEpicTemplate" class="space-y-5 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+    <form wire:submit="updateEpicTemplate" class="space-y-5 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700"
+        @keydown.ctrl.enter.prevent="$wire.updateEpicTemplate()"
+        @keydown.meta.enter.prevent="$wire.updateEpicTemplate()"
+    >
         <flux:input wire:model="editName" :label="__('Name')" required />
         <flux:textarea wire:model="editDescription" :label="__('Description (optional)')" rows="3" />
         <flux:input wire:model="editRepositoryUrl" :label="__('Repository URL (optional)')" type="text" placeholder="https://github.com/org/repo or git@github.com:org/repo.git" />
@@ -179,7 +182,9 @@ new #[Title('Epic Template')] class extends Component {
         </x-fullscreen-link>
 
         <div class="flex justify-end">
-            <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
+            <flux:tooltip content="Ctrl+Enter">
+                <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
+            </flux:tooltip>
         </div>
     </form>
 
@@ -190,12 +195,18 @@ new #[Title('Epic Template')] class extends Component {
                 :templates="$this->availableFeatureTemplates"
                 select-method="addFeatureTemplate"
                 :trigger-label="__('Add feature template')"
+                data-shortcut="add-feature-template"
             />
         </div>
 
         <ul class="list-none space-y-2">
             @forelse ($this->epicTemplateFeatures as $link)
-                <li wire:key="epic-template-feature-{{ $link->id }}" class="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                <li
+                    wire:key="epic-template-feature-{{ $link->id }}"
+                    data-selectable
+                    data-href="{{ route('templates.feature', $link->featureTemplate) }}"
+                    class="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
+                >
                     <flux:dropdown>
                         <button type="button" class="block shrink-0 cursor-pointer appearance-none border-0 bg-transparent p-0 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
                             <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
@@ -214,7 +225,7 @@ new #[Title('Epic Template')] class extends Component {
                             {{ $link->featureTemplate->name }}
                         </a>
                     </div>
-                    <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="confirmRemoveFeatureTemplate('{{ $link->id }}')" />
+                    <flux:button variant="ghost" size="sm" icon="x-mark" data-delete-btn wire:click="confirmRemoveFeatureTemplate('{{ $link->id }}')" />
                 </li>
             @empty
                 <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-10 dark:border-zinc-700 dark:bg-zinc-900/50">

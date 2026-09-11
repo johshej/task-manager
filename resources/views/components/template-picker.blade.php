@@ -11,6 +11,7 @@
         size="sm"
         icon="document-duplicate"
         @click="templatePickerOpen = !templatePickerOpen; templatePickerSearch = ''"
+        {{ $attributes }}
     >
         {{ $triggerLabel }}
     </flux:button>
