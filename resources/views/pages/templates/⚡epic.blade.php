@@ -86,12 +86,16 @@ new #[Title('Epic Template')] class extends Component {
             return;
         }
 
-        $this->epicTemplate->linkFeatureTemplate($featureTemplateId);
+        if ($mode === 'copy') {
+            $this->epicTemplate->copyFeatureTemplate($featureTemplateId);
+        } else {
+            $this->epicTemplate->linkFeatureTemplate($featureTemplateId);
 
-        if ($mode === 'cut' && $sourceLinkId) {
-            EpicTemplateFeature::where('id', $sourceLinkId)
-                ->where('epic_template_id', '!=', $this->epicTemplate->id)
-                ->delete();
+            if ($mode === 'cut' && $sourceLinkId) {
+                EpicTemplateFeature::where('id', $sourceLinkId)
+                    ->where('epic_template_id', '!=', $this->epicTemplate->id)
+                    ->delete();
+            }
         }
 
         unset($this->epicTemplateFeatures, $this->availableFeatureTemplates);
@@ -142,9 +146,9 @@ new #[Title('Epic Template')] class extends Component {
     #[Computed]
     public function availableFeatureTemplates(): Collection
     {
-        $linkedIds = $this->epicTemplate->epicTemplateFeatures()->pluck('feature_template_id');
-
-        return FeatureTemplate::whereNotIn('id', $linkedIds)->orderBy('name')->get();
+        // Only unconnected templates can be added — adding moves the
+        // template into this epic template.
+        return FeatureTemplate::whereDoesntHave('epicTemplateFeatures')->orderBy('name')->get();
     }
 }; ?>
 

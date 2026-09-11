@@ -91,7 +91,12 @@ new #[Title('Templates')] class extends Component {
     #[Computed]
     public function featureTemplates(): Collection
     {
-        return FeatureTemplate::withCount('tasks')->orderBy('name')->get();
+        // Unconnected templates only: dropping one on an epic template
+        // moves it there, so linked templates live on the epic template.
+        return FeatureTemplate::withCount('tasks')
+            ->whereDoesntHave('epicTemplateFeatures')
+            ->orderBy('name')
+            ->get();
     }
 
     /** @return Collection<int, EpicTemplate> */

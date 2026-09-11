@@ -39,4 +39,18 @@ class EpicTemplate extends Model
             'order_index' => $this->epicTemplateFeatures()->count(),
         ]);
     }
+
+    /**
+     * Copy means copy: link a duplicate of the feature template, so the
+     * original can be edited or deleted without touching this epic template.
+     */
+    public function copyFeatureTemplate(string $featureTemplateId): EpicTemplateFeature
+    {
+        $copy = FeatureTemplate::findOrFail($featureTemplateId)->duplicate();
+
+        return $this->epicTemplateFeatures()->create([
+            'feature_template_id' => $copy->id,
+            'order_index' => $this->epicTemplateFeatures()->count(),
+        ]);
+    }
 }

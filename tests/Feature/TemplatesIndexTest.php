@@ -99,3 +99,25 @@ test('linkFeatureTemplateToEpicTemplate does not duplicate an existing link', fu
 
     expect($epicTemplate->epicTemplateFeatures()->count())->toBe(1);
 });
+
+test('a feature template dropped on an epic template moves out of the unconnected list', function () {
+    $epicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create(['name' => 'Moved Away']);
+
+    $component = Livewire::test('pages::templates.index')
+        ->call('linkFeatureTemplateToEpicTemplate', $epicTemplate->id, $featureTemplate->id);
+
+    $ids = $component->instance()->featureTemplates->pluck('id')->all();
+    expect($ids)->not->toContain($featureTemplate->id);
+});
+
+test('the unconnected list shows only feature templates not linked to any epic template', function () {
+    $unconnected = FeatureTemplate::factory()->create(['name' => 'Free']);
+    $linked = FeatureTemplate::factory()->create(['name' => 'Taken']);
+    EpicTemplate::factory()->create()->epicTemplateFeatures()->create(['feature_template_id' => $linked->id, 'order_index' => 0]);
+
+    $ids = Livewire::test('pages::templates.index')->instance()->featureTemplates->pluck('id')->all();
+
+    expect($ids)->toContain($unconnected->id);
+    expect($ids)->not->toContain($linked->id);
+});
