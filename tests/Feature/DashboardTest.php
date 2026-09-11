@@ -20,3 +20,13 @@ test('authenticated users can visit the dashboard', function () {
 
     $response->assertOk();
 });
+
+test('dashboard links to templates', function () {
+    $user = User::factory()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('dashboard'));
+
+    $response->assertSee(route('templates'), false);
+});

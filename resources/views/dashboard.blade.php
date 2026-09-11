@@ -5,7 +5,7 @@
             <flux:subheading>{{ __('Welcome back, :name.', ['name' => auth()->user()->name]) }}</flux:subheading>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-3">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <a
                 href="{{ route('epics') }}"
                 wire:navigate
@@ -22,6 +22,27 @@
                     </flux:heading>
                     <flux:text class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
                         {{ __('View and manage epics, features, and tasks.') }}
+                    </flux:text>
+                </div>
+            </a>
+
+            <a
+                href="{{ route('templates') }}"
+                wire:navigate
+                class="group flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5 transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900"
+            >
+                <div class="flex size-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/50">
+                    <svg class="size-5 text-amber-600 dark:text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z" />
+                        <path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5Z" />
+                    </svg>
+                </div>
+                <div>
+                    <flux:heading size="sm" class="font-semibold group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                        {{ __('Templates') }}
+                    </flux:heading>
+                    <flux:text class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                        {{ __('Reusable blueprints for features and epics.') }}
                     </flux:text>
                 </div>
             </a>
