@@ -5,6 +5,7 @@ use App\Models\EpicTemplateFeature;
 use App\Models\FeatureTemplate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 uses(LazilyRefreshDatabase::class);
@@ -82,14 +83,67 @@ test('can remove a feature template link from an epic template', function () {
     $this->assertDatabaseHas('feature_templates', ['id' => $featureTemplate->id]);
 });
 
-test('moveFeatureTemplateToTop reorders links', function () {
+test('sortEpicTemplateFeatures reorders links', function () {
     $epicTemplate = EpicTemplate::factory()->create();
     $linkA = $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => FeatureTemplate::factory()->create()->id, 'order_index' => 0]);
     $linkB = $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => FeatureTemplate::factory()->create()->id, 'order_index' => 1]);
 
     Livewire::test('pages::templates.epic', ['epicTemplate' => $epicTemplate])
-        ->call('moveFeatureTemplateToTop', $linkB->id);
+        ->call('sortEpicTemplateFeatures', $linkB->id, 0);
 
     expect($linkB->fresh()->order_index)->toBe(0);
     expect($linkA->fresh()->order_index)->toBe(1);
+});
+
+test('pasteFeatureTemplate in copy mode links without touching the source', function () {
+    $sourceEpicTemplate = EpicTemplate::factory()->create();
+    $destinationEpicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create();
+    $sourceLink = $sourceEpicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplate->id, 'order_index' => 0]);
+
+    Livewire::test('pages::templates.epic', ['epicTemplate' => $destinationEpicTemplate])
+        ->call('pasteFeatureTemplate', $featureTemplate->id, 'copy', $sourceLink->id);
+
+    $this->assertModelExists($sourceLink);
+    $this->assertDatabaseHas('epic_template_features', [
+        'epic_template_id' => $destinationEpicTemplate->id,
+        'feature_template_id' => $featureTemplate->id,
+    ]);
+});
+
+test('pasteFeatureTemplate in cut mode moves the link to the destination', function () {
+    $sourceEpicTemplate = EpicTemplate::factory()->create();
+    $destinationEpicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create();
+    $sourceLink = $sourceEpicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplate->id, 'order_index' => 0]);
+
+    Livewire::test('pages::templates.epic', ['epicTemplate' => $destinationEpicTemplate])
+        ->call('pasteFeatureTemplate', $featureTemplate->id, 'cut', $sourceLink->id);
+
+    $this->assertModelMissing($sourceLink);
+    $this->assertDatabaseHas('epic_template_features', [
+        'epic_template_id' => $destinationEpicTemplate->id,
+        'feature_template_id' => $featureTemplate->id,
+    ]);
+});
+
+test('pasteFeatureTemplate in cut mode back onto its own source is a no-op', function () {
+    $epicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create();
+    $sourceLink = $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplate->id, 'order_index' => 0]);
+
+    Livewire::test('pages::templates.epic', ['epicTemplate' => $epicTemplate])
+        ->call('pasteFeatureTemplate', $featureTemplate->id, 'cut', $sourceLink->id);
+
+    $this->assertModelExists($sourceLink);
+    expect($epicTemplate->epicTemplateFeatures()->count())->toBe(1);
+});
+
+test('pasteFeatureTemplate guards against a feature template that no longer exists', function () {
+    $epicTemplate = EpicTemplate::factory()->create();
+
+    Livewire::test('pages::templates.epic', ['epicTemplate' => $epicTemplate])
+        ->call('pasteFeatureTemplate', (string) Str::orderedUuid(), 'copy', null);
+
+    expect($epicTemplate->epicTemplateFeatures()->count())->toBe(0);
 });

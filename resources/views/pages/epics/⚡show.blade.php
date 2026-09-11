@@ -1072,10 +1072,10 @@ new #[Title('Epic Board')] class extends Component {
                                         />
                                     </flux:tooltip>
                                 @endif
-                                <flux:tooltip :content="__('Add task')">
+                                <flux:tooltip content="{{ __('Add task (Shift + +)') }}">
                                     <flux:button variant="ghost" size="sm" icon="plus" data-add-task-btn wire:click="openAddTask('{{ $feature->id }}')" />
                                 </flux:tooltip>
-                                <flux:tooltip :content="__('Edit feature')">
+                                <flux:tooltip content="{{ __('Edit feature (Enter)') }}">
                                     <flux:button variant="ghost" size="sm" icon="pencil" data-open-btn :href="route('epics.board.feature', [$epic, $feature])" wire:navigate />
                                 </flux:tooltip>
                             </div>
@@ -1162,9 +1162,11 @@ new #[Title('Epic Board')] class extends Component {
                         <div data-selectable class="px-5 py-6 text-center transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                             <flux:text class="text-sm text-zinc-400">{{ __('No tasks yet.') }}</flux:text>
                             <div class="mt-2">
-                                <flux:button data-open-btn variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')">
-                                    {{ __('Add task') }}
-                                </flux:button>
+                                <flux:tooltip content="Enter">
+                                    <flux:button data-open-btn variant="ghost" size="sm" icon="plus" wire:click="openAddTask('{{ $feature->id }}')">
+                                        {{ __('Add task') }}
+                                    </flux:button>
+                                </flux:tooltip>
                             </div>
                         </div>
                     @endif

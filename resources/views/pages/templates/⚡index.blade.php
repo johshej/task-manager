@@ -61,6 +61,17 @@ new #[Title('Templates')] class extends Component {
         $this->redirect(route('templates.epic', $template), navigate: true);
     }
 
+    public function linkFeatureTemplateToEpicTemplate(string $epicTemplateId, string $featureTemplateId): void
+    {
+        $link = EpicTemplate::findOrFail($epicTemplateId)->linkFeatureTemplate($featureTemplateId);
+
+        unset($this->epicTemplates, $this->featureTemplates);
+
+        if ($link) {
+            Flux::toast(variant: 'success', text: 'Feature template linked.');
+        }
+    }
+
     public function confirmDeleteEpicTemplate(string $epicTemplateId): void
     {
         $this->deletingEpicTemplateId = $epicTemplateId;
@@ -101,9 +112,11 @@ new #[Title('Templates')] class extends Component {
     <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
             <flux:heading size="lg">{{ __('Feature templates') }}</flux:heading>
-            <flux:modal.trigger name="create-feature-template" data-shortcut="new-feature-template">
-                <flux:button variant="primary" size="sm" icon="plus">{{ __('New feature template') }}</flux:button>
-            </flux:modal.trigger>
+            <flux:tooltip content="+ / N">
+                <flux:modal.trigger name="create-feature-template" data-shortcut="new-feature-template">
+                    <flux:button variant="primary" size="sm" icon="plus">{{ __('New feature template') }}</flux:button>
+                </flux:modal.trigger>
+            </flux:tooltip>
         </div>
 
         <div class="space-y-2" data-list="feature-templates">
@@ -112,7 +125,9 @@ new #[Title('Templates')] class extends Component {
                     wire:key="feature-template-{{ $template->id }}"
                     data-selectable
                     data-href="{{ route('templates.feature', $template) }}"
-                    class="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+                    draggable="true"
+                    x-on:dragstart="$event.dataTransfer.setData('text/plain', '{{ $template->id }}')"
+                    class="flex cursor-grab items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                     <div class="flex items-center gap-2">
                         <a href="{{ route('templates.feature', $template) }}" wire:navigate class="font-semibold hover:text-blue-600 dark:hover:text-blue-400">
@@ -122,11 +137,22 @@ new #[Title('Templates')] class extends Component {
                             {{ $template->tasks_count }} {{ Str::plural('task', $template->tasks_count) }}
                         </flux:text>
                     </div>
-                    <div class="flex items-center gap-1">
-                        <flux:tooltip :content="__('Edit')">
+                    <div class="flex items-center gap-1" x-data="{ copiedFlash: false }">
+                        <span x-show="copiedFlash" x-cloak class="text-xs text-green-500">{{ __('Copied!') }}</span>
+                        <flux:tooltip content="C">
+                            <flux:button
+                                variant="ghost"
+                                size="sm"
+                                icon="clipboard-document"
+                                data-copy-btn
+                                x-show="!copiedFlash"
+                                x-on:click.stop="localStorage.setItem('templateClipboard', JSON.stringify({featureTemplateId: '{{ $template->id }}', featureTemplateName: {{ Illuminate\Support\Js::from($template->name) }}, mode: 'copy'})); copiedFlash = true; setTimeout(() => copiedFlash = false, 1200)"
+                            />
+                        </flux:tooltip>
+                        <flux:tooltip content="{{ __('Edit (E)') }}">
                             <flux:button variant="ghost" size="sm" icon="pencil" data-edit-btn :href="route('templates.feature', $template)" wire:navigate />
                         </flux:tooltip>
-                        <flux:tooltip :content="__('Delete')">
+                        <flux:tooltip content="{{ __('Delete (Delete)') }}">
                             <flux:button variant="ghost" size="sm" icon="trash" data-delete-btn wire:click="confirmDeleteFeatureTemplate('{{ $template->id }}')" />
                         </flux:tooltip>
                     </div>
@@ -143,9 +169,11 @@ new #[Title('Templates')] class extends Component {
     <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
             <flux:heading size="lg">{{ __('Epic templates') }}</flux:heading>
-            <flux:modal.trigger name="create-epic-template" data-shortcut="new-epic-template">
-                <flux:button variant="primary" size="sm" icon="plus">{{ __('New epic template') }}</flux:button>
-            </flux:modal.trigger>
+            <flux:tooltip content="+ / N">
+                <flux:modal.trigger name="create-epic-template" data-shortcut="new-epic-template">
+                    <flux:button variant="primary" size="sm" icon="plus">{{ __('New epic template') }}</flux:button>
+                </flux:modal.trigger>
+            </flux:tooltip>
         </div>
 
         <div class="space-y-2" data-list="epic-templates">
@@ -154,6 +182,11 @@ new #[Title('Templates')] class extends Component {
                     wire:key="epic-template-{{ $template->id }}"
                     data-selectable
                     data-href="{{ route('templates.epic', $template) }}"
+                    x-data="{ dragOver: false }"
+                    x-on:dragover.prevent="dragOver = true"
+                    x-on:dragleave="dragOver = false"
+                    x-on:drop="dragOver = false; $wire.linkFeatureTemplateToEpicTemplate('{{ $template->id }}', $event.dataTransfer.getData('text/plain'))"
+                    :class="{ 'ring-2 ring-accent': dragOver }"
                     class="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                     <div class="flex items-center gap-2">
@@ -165,10 +198,10 @@ new #[Title('Templates')] class extends Component {
                         </flux:text>
                     </div>
                     <div class="flex items-center gap-1">
-                        <flux:tooltip :content="__('Edit')">
+                        <flux:tooltip content="{{ __('Edit (E)') }}">
                             <flux:button variant="ghost" size="sm" icon="pencil" data-edit-btn :href="route('templates.epic', $template)" wire:navigate />
                         </flux:tooltip>
-                        <flux:tooltip :content="__('Delete')">
+                        <flux:tooltip content="{{ __('Delete (Delete)') }}">
                             <flux:button variant="ghost" size="sm" icon="trash" data-delete-btn wire:click="confirmDeleteEpicTemplate('{{ $template->id }}')" />
                         </flux:tooltip>
                     </div>

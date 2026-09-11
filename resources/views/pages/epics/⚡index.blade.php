@@ -274,9 +274,11 @@ new #[Title('Epics')] class extends Component {
                         @endif
                     </flux:button>
                 </flux:tooltip>
-                <flux:modal.trigger name="create-epic" data-shortcut="new-epic">
-                    <flux:button variant="primary" icon="plus">{{ __('New epic') }}</flux:button>
-                </flux:modal.trigger>
+                <flux:tooltip content="+ / N">
+                    <flux:modal.trigger name="create-epic" data-shortcut="new-epic">
+                        <flux:button variant="primary" icon="plus">{{ __('New epic') }}</flux:button>
+                    </flux:modal.trigger>
+                </flux:tooltip>
             </div>
         </div>
 
@@ -336,7 +338,7 @@ new #[Title('Epics')] class extends Component {
                             >{{ $epic->name }}</a>
                         </div>
                         <div class="flex shrink-0 items-center gap-1">
-                            <flux:tooltip :content="__('Edit')">
+                            <flux:tooltip content="{{ __('Edit (E)') }}">
                                 <flux:button
                                     variant="ghost"
                                     size="sm"

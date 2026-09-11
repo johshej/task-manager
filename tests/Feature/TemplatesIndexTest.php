@@ -75,3 +75,27 @@ test('can delete an epic template', function () {
 
     $this->assertDatabaseMissing('epic_templates', ['id' => $template->id]);
 });
+
+test('linkFeatureTemplateToEpicTemplate links a feature template to an epic template', function () {
+    $epicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create();
+
+    Livewire::test('pages::templates.index')
+        ->call('linkFeatureTemplateToEpicTemplate', $epicTemplate->id, $featureTemplate->id);
+
+    $this->assertDatabaseHas('epic_template_features', [
+        'epic_template_id' => $epicTemplate->id,
+        'feature_template_id' => $featureTemplate->id,
+    ]);
+});
+
+test('linkFeatureTemplateToEpicTemplate does not duplicate an existing link', function () {
+    $epicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create();
+    $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplate->id, 'order_index' => 0]);
+
+    Livewire::test('pages::templates.index')
+        ->call('linkFeatureTemplateToEpicTemplate', $epicTemplate->id, $featureTemplate->id);
+
+    expect($epicTemplate->epicTemplateFeatures()->count())->toBe(1);
+});

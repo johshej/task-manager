@@ -71,22 +71,32 @@ new #[Title('Epic Template')] class extends Component {
 
     public function addFeatureTemplate(string $featureTemplateId): void
     {
-        // Avoid linking the same feature template twice.
-        $alreadyLinked = $this->epicTemplate->epicTemplateFeatures()
-            ->where('feature_template_id', $featureTemplateId)
-            ->exists();
-
-        if ($alreadyLinked) {
-            return;
-        }
-
-        $this->epicTemplate->epicTemplateFeatures()->create([
-            'feature_template_id' => $featureTemplateId,
-            'order_index' => $this->epicTemplate->epicTemplateFeatures()->count(),
-        ]);
+        $this->epicTemplate->linkFeatureTemplate($featureTemplateId);
 
         unset($this->epicTemplateFeatures, $this->availableFeatureTemplates);
         Flux::toast(variant: 'success', text: 'Feature template added.');
+    }
+
+    public function pasteFeatureTemplate(string $featureTemplateId, string $mode, ?string $sourceLinkId = null): void
+    {
+        if (! FeatureTemplate::find($featureTemplateId)) {
+            Flux::toast(variant: 'danger', text: 'That feature template no longer exists.');
+            $this->dispatch('feature-template-pasted', mode: $mode);
+
+            return;
+        }
+
+        $this->epicTemplate->linkFeatureTemplate($featureTemplateId);
+
+        if ($mode === 'cut' && $sourceLinkId) {
+            EpicTemplateFeature::where('id', $sourceLinkId)
+                ->where('epic_template_id', '!=', $this->epicTemplate->id)
+                ->delete();
+        }
+
+        unset($this->epicTemplateFeatures, $this->availableFeatureTemplates);
+        Flux::toast(variant: 'success', text: 'Feature template added.');
+        $this->dispatch('feature-template-pasted', mode: $mode);
     }
 
     public function confirmRemoveFeatureTemplate(string $epicTemplateFeatureId): void
@@ -102,16 +112,6 @@ new #[Title('Epic Template')] class extends Component {
         $this->modal('remove-epic-template-feature')->close();
         unset($this->epicTemplateFeatures, $this->availableFeatureTemplates);
         Flux::toast(variant: 'success', text: 'Feature template removed.');
-    }
-
-    public function moveFeatureTemplateToTop(string $epicTemplateFeatureId): void
-    {
-        $this->sortEpicTemplateFeatures($epicTemplateFeatureId, 0);
-    }
-
-    public function moveFeatureTemplateToBottom(string $epicTemplateFeatureId): void
-    {
-        $this->sortEpicTemplateFeatures($epicTemplateFeatureId, $this->epicTemplate->epicTemplateFeatures()->count());
     }
 
     public function sortEpicTemplateFeatures(string $epicTemplateFeatureId, int $position): void
@@ -191,41 +191,101 @@ new #[Title('Epic Template')] class extends Component {
     <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
             <flux:heading size="lg">{{ __('Feature templates') }}</flux:heading>
-            <x-template-picker
-                :templates="$this->availableFeatureTemplates"
-                select-method="addFeatureTemplate"
-                :trigger-label="__('Add feature template')"
-                data-shortcut="add-feature-template"
-            />
+            <div class="flex items-center gap-1"
+                x-data="{
+                    clip: JSON.parse(localStorage.getItem('templateClipboard') || 'null'),
+                    refresh() { this.clip = JSON.parse(localStorage.getItem('templateClipboard') || 'null'); },
+                }"
+                x-on:livewire:navigated.window="refresh()"
+                x-on:feature-template-pasted.window="if ($event.detail.mode === 'cut') { localStorage.removeItem('templateClipboard'); refresh(); }"
+            >
+                <template x-if="clip">
+                    <div class="flex items-center gap-1">
+                        <flux:tooltip content="V">
+                            <flux:button
+                                variant="ghost"
+                                size="sm"
+                                icon="clipboard"
+                                data-shortcut="paste-feature-template"
+                                x-on:click="$wire.pasteFeatureTemplate(clip.featureTemplateId, clip.mode, clip.sourceLinkId ?? null)"
+                            ><span x-text="'{{ __('Paste') }}: ' + clip.featureTemplateName"></span></flux:button>
+                        </flux:tooltip>
+                        <flux:tooltip :content="__('Clear clipboard')">
+                            <flux:button variant="ghost" size="sm" icon="x-mark" x-on:click="localStorage.removeItem('templateClipboard'); clip = null" />
+                        </flux:tooltip>
+                    </div>
+                </template>
+                <flux:tooltip content="+ / N">
+                    <x-template-picker
+                        :templates="$this->availableFeatureTemplates"
+                        select-method="addFeatureTemplate"
+                        :trigger-label="__('Add feature template')"
+                        data-shortcut="add-feature-template"
+                    />
+                </flux:tooltip>
+            </div>
         </div>
 
-        <ul class="list-none space-y-2">
+        <ul
+            wire:sort="sortEpicTemplateFeatures"
+            wire:sort:config="{ delay: 200, delayOnTouchOnly: true }"
+            class="list-none space-y-2"
+        >
             @forelse ($this->epicTemplateFeatures as $link)
                 <li
                     wire:key="epic-template-feature-{{ $link->id }}"
+                    wire:sort:item="{{ $link->id }}"
                     data-selectable
                     data-href="{{ route('templates.feature', $link->featureTemplate) }}"
+                    data-link-id="{{ $link->id }}"
+                    data-feature-template-id="{{ $link->featureTemplate->id }}"
                     class="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
+                    x-data="{ isPendingCut: false }"
+                    x-init="
+                        const clip = JSON.parse(localStorage.getItem('templateClipboard') || 'null');
+                        isPendingCut = clip?.mode === 'cut' && clip?.sourceLinkId === '{{ $link->id }}';
+                    "
+                    :class="{ 'opacity-50': isPendingCut }"
                 >
-                    <flux:dropdown>
-                        <button type="button" class="block shrink-0 cursor-pointer appearance-none border-0 bg-transparent p-0 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
-                            <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
-                                <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
-                                <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
-                                <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
-                            </svg>
-                        </button>
-                        <flux:menu>
-                            <flux:menu.item icon="chevron-double-up" wire:click="moveFeatureTemplateToTop('{{ $link->id }}')">{{ __('Move to top') }}</flux:menu.item>
-                            <flux:menu.item icon="chevron-double-down" wire:click="moveFeatureTemplateToBottom('{{ $link->id }}')">{{ __('Move to bottom') }}</flux:menu.item>
-                        </flux:menu>
-                    </flux:dropdown>
+                    <button type="button" wire:sort:handle class="block shrink-0 cursor-grab appearance-none border-0 bg-transparent p-0 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400">
+                        <svg class="size-4" fill="currentColor" viewBox="0 0 16 16">
+                            <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
+                            <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                            <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+                        </svg>
+                    </button>
                     <div class="min-w-0 flex-1">
                         <a href="{{ route('templates.feature', $link->featureTemplate) }}" wire:navigate class="truncate text-sm font-medium hover:text-blue-600 dark:hover:text-blue-400">
                             {{ $link->featureTemplate->name }}
                         </a>
                     </div>
-                    <flux:button variant="ghost" size="sm" icon="x-mark" data-delete-btn wire:click="confirmRemoveFeatureTemplate('{{ $link->id }}')" />
+                    <div class="flex shrink-0 items-center gap-1" x-data="{ copiedFlash: false, cutFlash: false }">
+                        <span x-show="copiedFlash" x-cloak class="text-xs text-green-500">{{ __('Copied!') }}</span>
+                        <span x-show="cutFlash" x-cloak class="text-xs text-green-500">{{ __('Cut!') }}</span>
+                        <flux:tooltip content="C">
+                            <flux:button
+                                variant="ghost"
+                                size="sm"
+                                icon="clipboard-document"
+                                data-copy-btn
+                                x-show="!copiedFlash && !cutFlash"
+                                x-on:click="localStorage.setItem('templateClipboard', JSON.stringify({featureTemplateId: '{{ $link->featureTemplate->id }}', featureTemplateName: {{ Illuminate\Support\Js::from($link->featureTemplate->name) }}, mode: 'copy'})); copiedFlash = true; setTimeout(() => copiedFlash = false, 1200)"
+                            />
+                        </flux:tooltip>
+                        <flux:tooltip content="X">
+                            <flux:button
+                                variant="ghost"
+                                size="sm"
+                                icon="scissors"
+                                data-cut-btn
+                                x-show="!copiedFlash && !cutFlash"
+                                x-on:click="localStorage.setItem('templateClipboard', JSON.stringify({featureTemplateId: '{{ $link->featureTemplate->id }}', featureTemplateName: {{ Illuminate\Support\Js::from($link->featureTemplate->name) }}, mode: 'cut', sourceEpicTemplateId: '{{ $epicTemplate->id }}', sourceLinkId: '{{ $link->id }}'})); isPendingCut = true; cutFlash = true; setTimeout(() => cutFlash = false, 1200)"
+                            />
+                        </flux:tooltip>
+                        <flux:tooltip content="{{ __('Delete (Delete)') }}">
+                            <flux:button variant="ghost" size="sm" icon="x-mark" data-delete-btn wire:click="confirmRemoveFeatureTemplate('{{ $link->id }}')" />
+                        </flux:tooltip>
+                    </div>
                 </li>
             @empty
                 <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-10 dark:border-zinc-700 dark:bg-zinc-900/50">

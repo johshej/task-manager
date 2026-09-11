@@ -235,7 +235,9 @@ new #[Title('Feature Template')] class extends Component {
     <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
             <flux:heading size="lg">{{ __('Subtasks') }}</flux:heading>
-            <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-template-task" wire:click="openAddTask">{{ __('Add task') }}</flux:button>
+            <flux:tooltip content="+ / N">
+                <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-template-task" wire:click="openAddTask">{{ __('Add task') }}</flux:button>
+            </flux:tooltip>
         </div>
 
         <ul
@@ -261,8 +263,12 @@ new #[Title('Feature Template')] class extends Component {
                         <div class="truncate text-sm font-medium">{{ $task->title }}</div>
                         <flux:badge color="zinc" size="sm" class="tabular-nums">P{{ $task->priority }}</flux:badge>
                     </div>
-                    <flux:button variant="ghost" size="sm" icon="pencil" data-edit-btn wire:click="openEditTask('{{ $task->id }}')" />
-                    <flux:button variant="ghost" size="sm" icon="trash" data-delete-btn wire:click="confirmDeleteTask('{{ $task->id }}')" />
+                    <flux:tooltip content="{{ __('Edit (E)') }}">
+                        <flux:button variant="ghost" size="sm" icon="pencil" data-edit-btn wire:click="openEditTask('{{ $task->id }}')" />
+                    </flux:tooltip>
+                    <flux:tooltip content="{{ __('Delete (Delete)') }}">
+                        <flux:button variant="ghost" size="sm" icon="trash" data-delete-btn wire:click="confirmDeleteTask('{{ $task->id }}')" />
+                    </flux:tooltip>
                 </li>
             @empty
                 <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-10 dark:border-zinc-700 dark:bg-zinc-900/50">

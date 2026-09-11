@@ -27,4 +27,16 @@ class EpicTemplate extends Model
     {
         return $this->hasMany(EpicTemplateFeature::class)->orderBy('order_index');
     }
+
+    public function linkFeatureTemplate(string $featureTemplateId): ?EpicTemplateFeature
+    {
+        if ($this->epicTemplateFeatures()->where('feature_template_id', $featureTemplateId)->exists()) {
+            return null;
+        }
+
+        return $this->epicTemplateFeatures()->create([
+            'feature_template_id' => $featureTemplateId,
+            'order_index' => $this->epicTemplateFeatures()->count(),
+        ]);
+    }
 }

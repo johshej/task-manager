@@ -68,6 +68,7 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">g</kbd> → <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">s</kbd> &nbsp; Go to Settings</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">?</kbd> &nbsp; This help</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Esc</kbd> &nbsp; Back / close</div>
+            <div style="color:#71717a;margin-top:4px"><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">+</kbd> always works anywhere <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> (new) is listed</div>
           </div>
           <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Epics list</div>
@@ -75,7 +76,7 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Shift</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Move epic</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open board</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit selected</div>
-            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> &nbsp; New epic</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">+</kbd> &nbsp; New epic</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">f</kbd> &nbsp; Toggle filters</div>
           </div>
           <div>
@@ -107,7 +108,10 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">e</kbd> &nbsp; Edit selected (list only)</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Delete</kbd> &nbsp; Delete / remove selected</div>
-            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> &nbsp; New (feature or epic template, or task/link on a template page)</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">n</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">+</kbd> &nbsp; New (feature or epic template, or task/link on a template page)</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">c</kbd> &nbsp; Copy selected feature template</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">x</kbd> &nbsp; Cut selected (epic template page only)</div>
+            <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">v</kbd> &nbsp; Paste into this epic template</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Ctrl</kbd>+<kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Save form</div>
           </div>
         </div>
@@ -489,7 +493,7 @@
         const a = currentActive();
         if (a) { const btn = a.querySelector('[data-edit-btn]'); if (btn) btn.click(); }
       }
-      if (e.key === 'n') { e.preventDefault(); handled = true; shortcut('new-epic'); }
+      if (e.key === 'n' || e.key === '+' || e.code === 'Equal') { e.preventDefault(); handled = true; shortcut('new-epic'); }
       if (e.key === 'f') {
         e.preventDefault(); handled = true;
         if (isFilterOpen()) { closeFilter(); } else { openFilter(); }
@@ -565,11 +569,16 @@
         const a = currentActive();
         if (a) { const btn = a.querySelector('[data-delete-btn]'); if (btn) btn.click(); }
       }
-      if (e.key === 'n') {
+      if (e.key === 'n' || e.key === '+' || e.code === 'Equal') {
         e.preventDefault(); handled = true;
         const a = currentActive();
         const inEpicTemplates = !!a && !!a.closest('[data-list="epic-templates"]');
         shortcut(inEpicTemplates ? 'new-epic-template' : 'new-feature-template');
+      }
+      if (e.key === 'c') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-copy-btn]'); if (btn) btn.click(); }
       }
     }
 
@@ -586,7 +595,7 @@
         const a = currentActive();
         if (a) { const btn = a.querySelector('[data-delete-btn]'); if (btn) btn.click(); }
       }
-      if (e.key === 'n') { e.preventDefault(); handled = true; shortcut('add-template-task'); }
+      if (e.key === 'n' || e.key === '+' || e.code === 'Equal') { e.preventDefault(); handled = true; shortcut('add-template-task'); }
     }
 
     if (view === 'epic-template') {
@@ -602,7 +611,18 @@
         const a = currentActive();
         if (a) { const btn = a.querySelector('[data-delete-btn]'); if (btn) btn.click(); }
       }
-      if (e.key === 'n') { e.preventDefault(); handled = true; shortcut('add-feature-template'); }
+      if (e.key === 'n' || e.key === '+' || e.code === 'Equal') { e.preventDefault(); handled = true; shortcut('add-feature-template'); }
+      if (e.key === 'c') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-copy-btn]'); if (btn) btn.click(); }
+      }
+      if (e.key === 'x') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-cut-btn]'); if (btn) btn.click(); }
+      }
+      if (e.key === 'v') { e.preventDefault(); handled = true; shortcut('paste-feature-template'); }
     }
 
     return handled;
