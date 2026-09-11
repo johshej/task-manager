@@ -121,3 +121,40 @@ test('the unconnected list shows only feature templates not linked to any epic t
     expect($ids)->toContain($unconnected->id);
     expect($ids)->not->toContain($linked->id);
 });
+
+test('pasting a copied feature template into the unlinked area creates an unconnected duplicate', function () {
+    $epicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create(['name' => 'Copied Back']);
+    $featureTemplate->tasks()->create(['title' => 'A task', 'order_index' => 0]);
+    $sourceLink = $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplate->id, 'order_index' => 0]);
+
+    $component = Livewire::test('pages::templates.index')
+        ->call('pasteFeatureTemplate', $featureTemplate->id, 'copy', $sourceLink->id);
+
+    $this->assertModelExists($sourceLink);
+
+    $unconnected = $component->instance()->featureTemplates;
+    expect($unconnected->pluck('name')->all())->toContain('Copied Back');
+    $copy = $unconnected->firstWhere('name', 'Copied Back');
+    expect($copy->id)->not->toBe($featureTemplate->id);
+    expect($copy->tasks()->pluck('title')->all())->toBe(['A task']);
+});
+
+test('pasting a cut feature template into the unlinked area moves it out of its epic template', function () {
+    $epicTemplate = EpicTemplate::factory()->create();
+    $featureTemplate = FeatureTemplate::factory()->create(['name' => 'Moved Back']);
+    $sourceLink = $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplate->id, 'order_index' => 0]);
+
+    $component = Livewire::test('pages::templates.index')
+        ->call('pasteFeatureTemplate', $featureTemplate->id, 'cut', $sourceLink->id);
+
+    $this->assertModelMissing($sourceLink);
+    expect($component->instance()->featureTemplates->pluck('id')->all())->toContain($featureTemplate->id);
+    expect(FeatureTemplate::count())->toBe(1);
+});
+
+test('pasting a feature template that no longer exists into the unlinked area is guarded', function () {
+    Livewire::test('pages::templates.index')
+        ->call('pasteFeatureTemplate', Str::uuid7()->toString(), 'copy', null)
+        ->assertOk();
+});
