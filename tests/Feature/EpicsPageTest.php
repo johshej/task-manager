@@ -6,7 +6,9 @@ use App\Enums\FeatureStatus;
 use App\Enums\HistoryAction;
 use App\Enums\TaskStatus;
 use App\Models\Epic;
+use App\Models\EpicTemplate;
 use App\Models\Feature;
+use App\Models\FeatureTemplate;
 use App\Models\Task;
 use App\Models\TaskHistory;
 use App\Models\User;
@@ -66,6 +68,79 @@ test('epic creation requires a name', function () {
         ->set('name', '')
         ->call('createEpic')
         ->assertHasErrors(['name' => 'required']);
+});
+
+// ── Epic templates ────────────────────────────────────────────────────────────
+
+test('applyEpicTemplate fills the create-epic form from the template', function () {
+    $template = EpicTemplate::factory()->create([
+        'name' => 'Standard project',
+        'description' => 'A standard project shape',
+        'repository_url' => 'https://github.com/org/repo',
+        'tdd' => true,
+        'ai_mode' => 'Be careful',
+        'environment' => 'Staging',
+    ]);
+
+    Livewire::test('pages::epics.index')
+        ->call('applyEpicTemplate', $template->id)
+        ->assertSet('name', 'Standard project')
+        ->assertSet('description', 'A standard project shape')
+        ->assertSet('repositoryUrl', 'https://github.com/org/repo')
+        ->assertSet('tdd', '1')
+        ->assertSet('aiMode', 'Be careful')
+        ->assertSet('environment', 'Staging')
+        ->assertSet('selectedEpicTemplateId', $template->id);
+});
+
+test('createEpic applies the selected epic template, creating its features and their subtasks', function () {
+    $epicTemplate = EpicTemplate::factory()->create(['name' => 'Standard project']);
+    $featureTemplateA = FeatureTemplate::factory()->create(['name' => 'Setup']);
+    $featureTemplateA->tasks()->create(['title' => 'Install deps', 'order_index' => 0]);
+    $featureTemplateB = FeatureTemplate::factory()->create(['name' => 'Launch']);
+    $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplateA->id, 'order_index' => 0]);
+    $epicTemplate->epicTemplateFeatures()->create(['feature_template_id' => $featureTemplateB->id, 'order_index' => 1]);
+
+    Livewire::test('pages::epics.index')
+        ->call('applyEpicTemplate', $epicTemplate->id)
+        ->call('createEpic')
+        ->assertHasNoErrors();
+
+    $epic = Epic::where('name', 'Standard project')->firstOrFail();
+    expect($epic->features()->count())->toBe(2);
+
+    $setupFeature = $epic->features()->where('name', 'Setup')->firstOrFail();
+    expect($setupFeature->tasks()->count())->toBe(1);
+    $this->assertDatabaseHas('tasks', ['feature_id' => $setupFeature->id, 'title' => 'Install deps']);
+});
+
+test('createEpic without a selected template does not create any features', function () {
+    Livewire::test('pages::epics.index')
+        ->set('name', 'Plain epic')
+        ->call('createEpic')
+        ->assertHasNoErrors();
+
+    $epic = Epic::where('name', 'Plain epic')->firstOrFail();
+    expect($epic->features()->count())->toBe(0);
+});
+
+test('saveEpicAsTemplate copies the epic, its features, and their tasks, then redirects to the template', function () {
+    $epic = Epic::factory()->create(['name' => 'Copy me', 'repository_url' => 'https://github.com/org/repo']);
+    $feature = Feature::factory()->for($epic)->create(['name' => 'Feature A', 'order_index' => 0]);
+    $feature->tasks()->create(['title' => 'Task A', 'order_index' => 0]);
+
+    $component = Livewire::test('pages::epics.index')
+        ->call('saveEpicAsTemplate', $epic->id);
+
+    $epicTemplate = EpicTemplate::where('name', 'Copy me')->firstOrFail();
+    expect($epicTemplate->repository_url)->toBe('https://github.com/org/repo')
+        ->and($epicTemplate->epicTemplateFeatures()->count())->toBe(1);
+
+    $featureTemplate = $epicTemplate->epicTemplateFeatures()->first()->featureTemplate;
+    expect($featureTemplate->name)->toBe('Feature A')
+        ->and($featureTemplate->tasks()->count())->toBe(1);
+
+    $component->assertRedirect(route('templates.epic', $epicTemplate));
 });
 
 test('can edit an epic', function () {
@@ -1453,4 +1528,78 @@ test('AI mode still saves correctly on create feature and create task once tucke
         ->assertHasNoErrors();
 
     $this->assertDatabaseHas('tasks', ['title' => 'Task With AI Mode', 'ai_mode' => 'Be extra careful too']);
+});
+
+// ── Feature templates ─────────────────────────────────────────────────────────
+
+test('applyFeatureTemplate fills the create-feature form from the template', function () {
+    $epic = Epic::factory()->create();
+    $template = FeatureTemplate::factory()->create([
+        'name' => 'Standard rollout',
+        'description' => 'Roll out a new environment',
+        'tdd' => true,
+        'ai_mode' => 'Be careful',
+        'environment' => 'Staging',
+    ]);
+
+    $component = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('applyFeatureTemplate', $template->id);
+
+    $component->assertSet('newFeatureName', 'Standard rollout')
+        ->assertSet('newFeatureDescription', 'Roll out a new environment')
+        ->assertSet('newFeatureTdd', '1')
+        ->assertSet('newFeatureAiMode', 'Be careful')
+        ->assertSet('newFeatureEnvironment', 'Staging')
+        ->assertSet('selectedFeatureTemplateId', $template->id);
+});
+
+test('createFeature applies the selected template and creates its subtasks', function () {
+    $epic = Epic::factory()->create();
+    $template = FeatureTemplate::factory()->create(['name' => 'Standard rollout']);
+    $template->tasks()->create(['title' => 'First step', 'order_index' => 0]);
+    $template->tasks()->create(['title' => 'Second step', 'order_index' => 1]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('applyFeatureTemplate', $template->id)
+        ->call('createFeature')
+        ->assertHasNoErrors();
+
+    $feature = Feature::where('name', 'Standard rollout')->firstOrFail();
+    expect($feature->tasks()->count())->toBe(2);
+    $this->assertDatabaseHas('tasks', ['feature_id' => $feature->id, 'title' => 'First step', 'order_index' => 0]);
+    $this->assertDatabaseHas('tasks', ['feature_id' => $feature->id, 'title' => 'Second step', 'order_index' => 1]);
+});
+
+test('createFeature without a selected template does not create any subtasks', function () {
+    $epic = Epic::factory()->create();
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('newFeatureName', 'Plain feature')
+        ->call('createFeature')
+        ->assertHasNoErrors();
+
+    $feature = Feature::where('name', 'Plain feature')->firstOrFail();
+    expect($feature->tasks()->count())->toBe(0);
+});
+
+test('saveFeatureAsTemplate copies the feature and its tasks, then redirects to the template', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create([
+        'name' => 'Copy me', 'description' => 'desc', 'tdd' => true, 'ai_mode' => 'mode', 'environment' => 'Production',
+    ]);
+    $feature->tasks()->create(['title' => 'Sub one', 'priority' => 3, 'order_index' => 0]);
+    $feature->tasks()->create(['title' => 'Sub two', 'priority' => 4, 'order_index' => 1]);
+
+    $component = Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('saveFeatureAsTemplate', $feature->id);
+
+    $template = FeatureTemplate::where('name', 'Copy me')->firstOrFail();
+    expect($template->description)->toBe('desc')
+        ->and($template->tdd)->toBeTrue()
+        ->and($template->ai_mode)->toBe('mode')
+        ->and($template->environment)->toBe('Production')
+        ->and($template->tasks()->count())->toBe(2);
+
+    $this->assertDatabaseHas('feature_template_tasks', ['feature_template_id' => $template->id, 'title' => 'Sub one', 'priority' => 3]);
+    $component->assertRedirect(route('templates.feature', $template));
 });

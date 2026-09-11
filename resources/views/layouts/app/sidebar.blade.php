@@ -20,6 +20,9 @@
                     <flux:sidebar.item icon="rectangle-stack" :href="route('epics')" :current="request()->routeIs('epics') || request()->routeIs('epics.board')" wire:navigate>
                         {{ __('Epics') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="document-duplicate" :href="route('templates')" :current="request()->routeIs('templates') || request()->routeIs('templates.*')" wire:navigate>
+                        {{ __('Templates') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 

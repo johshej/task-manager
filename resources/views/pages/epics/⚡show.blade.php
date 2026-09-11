@@ -9,8 +9,10 @@ use App\Models\Epic;
 use App\Models\EpicHistory;
 use App\Models\Feature;
 use App\Models\FeatureHistory;
+use App\Models\FeatureTemplate;
 use App\Models\Task;
 use App\Models\TaskHistory;
+use App\Services\FeatureTemplateApplier;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -35,6 +37,7 @@ new #[Title('Epic Board')] class extends Component {
     public string $newFeatureTdd = '';
     public string $newFeatureAiMode = '';
     public string $newFeatureEnvironment = '';
+    public ?string $selectedFeatureTemplateId = null;
 
     // Feature editing
     public ?string $editingFeatureId = null;
@@ -205,8 +208,27 @@ new #[Title('Epic Board')] class extends Component {
 
     public function openAddFeature(): void
     {
-        $this->reset('newFeatureName', 'newFeatureDescription', 'newFeatureTdd', 'newFeatureAiMode', 'newFeatureEnvironment');
+        $this->reset('newFeatureName', 'newFeatureDescription', 'newFeatureTdd', 'newFeatureAiMode', 'newFeatureEnvironment', 'selectedFeatureTemplateId');
         $this->modal('create-feature')->show();
+    }
+
+    public function applyFeatureTemplate(string $featureTemplateId): void
+    {
+        $template = FeatureTemplate::findOrFail($featureTemplateId);
+
+        $this->newFeatureName = $template->name;
+        $this->newFeatureDescription = $template->description ?? '';
+        $this->newFeatureTdd = $this->boolToTddString($template->tdd);
+        $this->newFeatureAiMode = $template->ai_mode ?? '';
+        $this->newFeatureEnvironment = $template->environment ?? '';
+        $this->selectedFeatureTemplateId = $featureTemplateId;
+    }
+
+    /** @return Collection<int, FeatureTemplate> */
+    #[Computed]
+    public function featureTemplateOptions(): Collection
+    {
+        return FeatureTemplate::orderBy('name')->get(['id', 'name']);
     }
 
     public function createFeature(): void
@@ -229,7 +251,12 @@ new #[Title('Epic Board')] class extends Component {
             'environment' => $this->newFeatureEnvironment ?: null,
         ]);
 
-        $this->reset('newFeatureName', 'newFeatureDescription', 'newFeatureTdd', 'newFeatureAiMode', 'newFeatureEnvironment');
+        if ($this->selectedFeatureTemplateId) {
+            $template = FeatureTemplate::findOrFail($this->selectedFeatureTemplateId);
+            app(FeatureTemplateApplier::class)->apply($template, $feature);
+        }
+
+        $this->reset('newFeatureName', 'newFeatureDescription', 'newFeatureTdd', 'newFeatureAiMode', 'newFeatureEnvironment', 'selectedFeatureTemplateId');
         $this->modal('create-feature')->close();
         unset($this->features, $this->allFeatures);
         Flux::toast(variant: 'success', text: 'Feature created.');
@@ -298,6 +325,34 @@ new #[Title('Epic Board')] class extends Component {
         unset($this->features, $this->kanbanColumns, $this->allFeatures);
         Flux::toast(variant: 'success', text: 'Feature deleted.');
         $this->redirect(route('epics.board', $this->epic), navigate: true);
+    }
+
+    public function saveFeatureAsTemplate(string $featureId): void
+    {
+        $feature = Feature::with('tasks')->findOrFail($featureId);
+
+        $template = FeatureTemplate::create([
+            'name' => $feature->name,
+            'description' => $feature->description,
+            'tdd' => $feature->tdd,
+            'ai_mode' => $feature->ai_mode,
+            'environment' => $feature->environment,
+        ]);
+
+        foreach ($feature->tasks as $index => $task) {
+            $template->tasks()->create([
+                'title' => $task->title,
+                'description' => $task->description,
+                'priority' => $task->priority,
+                'tdd' => $task->tdd,
+                'ai_mode' => $task->ai_mode,
+                'environment' => $task->environment,
+                'order_index' => $index,
+            ]);
+        }
+
+        Flux::toast(variant: 'success', text: 'Feature saved as template.');
+        $this->redirect(route('templates.feature', $template), navigate: true);
     }
 
     // ── Tasks ─────────────────────────────────────────────────────────────────
@@ -1303,9 +1358,16 @@ new #[Title('Epic Board')] class extends Component {
                 @keydown.ctrl.enter.prevent="$wire.createFeature()"
                 @keydown.meta.enter.prevent="$wire.createFeature()"
             >
-                <div>
-                    <flux:heading size="lg">{{ __('New feature') }}</flux:heading>
-                    <flux:subheading>{{ __('Features are groups of related tasks within an epic.') }}</flux:subheading>
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <flux:heading size="lg">{{ __('New feature') }}</flux:heading>
+                        <flux:subheading>{{ __('Features are groups of related tasks within an epic.') }}</flux:subheading>
+                    </div>
+                    <x-template-picker
+                        :templates="$this->featureTemplateOptions"
+                        select-method="applyFeatureTemplate"
+                        :trigger-label="__('Use a template')"
+                    />
                 </div>
 
                 <flux:input wire:model="newFeatureName" :label="__('Name')" autofocus required />
@@ -1445,7 +1507,10 @@ new #[Title('Epic Board')] class extends Component {
             </form>
 
             <div class="mt-5 flex shrink-0 items-center justify-between gap-2">
-                <flux:button variant="danger" icon="trash" size="sm" wire:click="confirmDeleteFeature('{{ $editingFeatureId }}')">{{ __('Delete') }}</flux:button>
+                <div class="flex gap-2">
+                    <flux:button variant="danger" icon="trash" size="sm" wire:click="confirmDeleteFeature('{{ $editingFeatureId }}')">{{ __('Delete') }}</flux:button>
+                    <flux:button variant="ghost" icon="document-duplicate" size="sm" wire:click="saveFeatureAsTemplate('{{ $editingFeatureId }}')">{{ __('Save as template') }}</flux:button>
+                </div>
                 <div class="flex gap-2">
                     <flux:button variant="filled" wire:click="closeEditFeature">{{ __('Cancel') }}</flux:button>
                     <flux:tooltip content="Ctrl+Enter">

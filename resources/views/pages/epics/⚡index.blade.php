@@ -1,7 +1,11 @@
 <?php
 
 use App\Enums\EpicStatus;
+use App\Enums\FeatureStatus;
 use App\Models\Epic;
+use App\Models\EpicTemplate;
+use App\Models\FeatureTemplate;
+use App\Services\FeatureTemplateApplier;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -16,6 +20,7 @@ new #[Title('Epics')] class extends Component {
     public string $tdd = '';
     public string $aiMode = '';
     public string $environment = '';
+    public ?string $selectedEpicTemplateId = null;
     public array $filterStatuses = [];
     public bool $showFilters = false;
 
@@ -74,6 +79,35 @@ new #[Title('Epics')] class extends Component {
         return $value === '' ? null : (bool) $value;
     }
 
+    public function applyEpicTemplate(string $epicTemplateId): void
+    {
+        $template = EpicTemplate::findOrFail($epicTemplateId);
+
+        $this->name = $template->name;
+        $this->description = $template->description ?? '';
+        $this->repositoryUrl = $template->repository_url ?? '';
+        $this->tdd = $this->boolToTddString($template->tdd);
+        $this->aiMode = $template->ai_mode ?? '';
+        $this->environment = $template->environment ?? '';
+        $this->selectedEpicTemplateId = $epicTemplateId;
+    }
+
+    private function boolToTddString(?bool $value): string
+    {
+        return match ($value) {
+            true => '1',
+            false => '0',
+            default => '',
+        };
+    }
+
+    /** @return Collection<int, EpicTemplate> */
+    #[Computed]
+    public function epicTemplateOptions(): Collection
+    {
+        return EpicTemplate::orderBy('name')->get(['id', 'name']);
+    }
+
     public function createEpic(): void
     {
         $this->validate([
@@ -85,7 +119,7 @@ new #[Title('Epics')] class extends Component {
             'environment' => ['nullable', 'string', 'max:100'],
         ]);
 
-        Epic::create([
+        $epic = Epic::create([
             'name' => $this->name,
             'description' => $this->description ?: null,
             'repository_url' => $this->repositoryUrl ?: null,
@@ -96,7 +130,28 @@ new #[Title('Epics')] class extends Component {
             'environment' => $this->environment ?: null,
         ]);
 
-        $this->reset('name', 'description', 'repositoryUrl', 'tdd', 'environment');
+        if ($this->selectedEpicTemplateId) {
+            $epicTemplate = EpicTemplate::findOrFail($this->selectedEpicTemplateId);
+            $applier = app(FeatureTemplateApplier::class);
+
+            foreach ($epicTemplate->epicTemplateFeatures()->with('featureTemplate')->orderBy('order_index')->get() as $index => $link) {
+                $featureTemplate = $link->featureTemplate;
+
+                $feature = $epic->features()->create([
+                    'name' => $featureTemplate->name,
+                    'description' => $featureTemplate->description,
+                    'status' => FeatureStatus::Todo,
+                    'order_index' => $index,
+                    'tdd' => $featureTemplate->tdd,
+                    'ai_mode' => $featureTemplate->ai_mode,
+                    'environment' => $featureTemplate->environment,
+                ]);
+
+                $applier->apply($featureTemplate, $feature);
+            }
+        }
+
+        $this->reset('name', 'description', 'repositoryUrl', 'tdd', 'environment', 'selectedEpicTemplateId');
         $this->aiMode = self::defaultAiMode();
         $this->modal('create-epic')->close();
         Flux::toast(variant: 'success', text: 'Epic created.');
@@ -114,6 +169,50 @@ new #[Title('Epics')] class extends Component {
         $this->deletingEpicId = null;
         $this->modal('delete-epic')->close();
         Flux::toast(variant: 'success', text: 'Epic deleted.');
+    }
+
+    public function saveEpicAsTemplate(string $epicId): void
+    {
+        $epic = Epic::with(['features' => fn ($q) => $q->orderBy('order_index')->with(['tasks' => fn ($q) => $q->orderBy('order_index')])])->findOrFail($epicId);
+
+        $epicTemplate = EpicTemplate::create([
+            'name' => $epic->name,
+            'description' => $epic->description,
+            'repository_url' => $epic->repository_url,
+            'tdd' => $epic->tdd,
+            'ai_mode' => $epic->ai_mode,
+            'environment' => $epic->environment,
+        ]);
+
+        foreach ($epic->features as $featureIndex => $feature) {
+            $featureTemplate = FeatureTemplate::create([
+                'name' => $feature->name,
+                'description' => $feature->description,
+                'tdd' => $feature->tdd,
+                'ai_mode' => $feature->ai_mode,
+                'environment' => $feature->environment,
+            ]);
+
+            foreach ($feature->tasks as $taskIndex => $task) {
+                $featureTemplate->tasks()->create([
+                    'title' => $task->title,
+                    'description' => $task->description,
+                    'priority' => $task->priority,
+                    'tdd' => $task->tdd,
+                    'ai_mode' => $task->ai_mode,
+                    'environment' => $task->environment,
+                    'order_index' => $taskIndex,
+                ]);
+            }
+
+            $epicTemplate->epicTemplateFeatures()->create([
+                'feature_template_id' => $featureTemplate->id,
+                'order_index' => $featureIndex,
+            ]);
+        }
+
+        Flux::toast(variant: 'success', text: 'Epic saved as template.');
+        $this->redirect(route('templates.epic', $epicTemplate), navigate: true);
     }
 
     public function sortEpics(string $epicId, int $position): void
@@ -247,6 +346,14 @@ new #[Title('Epics')] class extends Component {
                                     wire:navigate
                                 />
                             </flux:tooltip>
+                            <flux:tooltip :content="__('Save as template')">
+                                <flux:button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon="document-duplicate"
+                                    wire:click="saveEpicAsTemplate('{{ $epic->id }}')"
+                                />
+                            </flux:tooltip>
                             <flux:tooltip :content="__('Delete')">
                                 <flux:button
                                     variant="ghost"
@@ -319,9 +426,16 @@ new #[Title('Epics')] class extends Component {
     {{-- Create Epic Modal --}}
     <flux:modal name="create-epic" :show="$errors->isNotEmpty()" focusable class="md:w-[520px]">
         <form wire:submit="createEpic" class="space-y-5">
-            <div>
-                <flux:heading size="lg">{{ __('New epic') }}</flux:heading>
-                <flux:subheading>{{ __('An epic is a large body of work broken into features and tasks.') }}</flux:subheading>
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <flux:heading size="lg">{{ __('New epic') }}</flux:heading>
+                    <flux:subheading>{{ __('An epic is a large body of work broken into features and tasks.') }}</flux:subheading>
+                </div>
+                <x-template-picker
+                    :templates="$this->epicTemplateOptions"
+                    select-method="applyEpicTemplate"
+                    :trigger-label="__('Use a template')"
+                />
             </div>
 
             <flux:input wire:model="name" :label="__('Name')" autofocus required />
