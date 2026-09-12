@@ -1235,6 +1235,78 @@ test('createTask selects the newly created task', function () {
     expect(session('highlighted_id'))->toBe($task->id);
 });
 
+// ── New feature/task position setting ────────────────────────────────────────
+
+test('createFeature adds to the bottom by default', function () {
+    $epic = Epic::factory()->create();
+    $existing = Feature::factory()->for($epic)->create(['order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('newFeatureName', 'New Feature')
+        ->call('createFeature');
+
+    $newFeature = Feature::where('name', 'New Feature')->firstOrFail();
+    expect($newFeature->order_index)->toBe(1);
+    expect($existing->fresh()->order_index)->toBe(0);
+});
+
+test('createFeature adds to the top when new_features_to_top is enabled', function () {
+    $epic = Epic::factory()->create(['new_features_to_top' => true]);
+    $existing = Feature::factory()->for($epic)->create(['order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->set('newFeatureName', 'New Feature')
+        ->call('createFeature');
+
+    $newFeature = Feature::where('name', 'New Feature')->firstOrFail();
+    expect($newFeature->order_index)->toBe(0);
+    expect($existing->fresh()->order_index)->toBe(1);
+});
+
+test('createTask adds to the bottom by default', function () {
+    $epic = Epic::factory()->create();
+    $feature = Feature::factory()->for($epic)->create();
+    $existing = Task::factory()->for($feature)->create(['order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openAddTask', $feature->id)
+        ->set('newTaskTitle', 'New Task')
+        ->call('createTask');
+
+    $newTask = Task::where('title', 'New Task')->firstOrFail();
+    expect($newTask->order_index)->toBe(1);
+    expect($existing->fresh()->order_index)->toBe(0);
+});
+
+test('createTask adds to the top when new_tasks_to_top is enabled', function () {
+    $epic = Epic::factory()->create(['new_tasks_to_top' => true]);
+    $feature = Feature::factory()->for($epic)->create();
+    $existing = Task::factory()->for($feature)->create(['order_index' => 0]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openAddTask', $feature->id)
+        ->set('newTaskTitle', 'New Task')
+        ->call('createTask');
+
+    $newTask = Task::where('title', 'New Task')->firstOrFail();
+    expect($newTask->order_index)->toBe(0);
+    expect($existing->fresh()->order_index)->toBe(1);
+});
+
+test('updateEpic saves the new item position settings', function () {
+    $epic = Epic::factory()->create(['new_features_to_top' => false, 'new_tasks_to_top' => false]);
+
+    Livewire::test('pages::epics.show', ['epic' => $epic])
+        ->call('openEditEpic')
+        ->set('editEpicNewFeaturesToTop', true)
+        ->set('editEpicNewTasksToTop', true)
+        ->call('updateEpic');
+
+    $epic->refresh();
+    expect($epic->new_features_to_top)->toBeTrue();
+    expect($epic->new_tasks_to_top)->toBeTrue();
+});
+
 // ── Feature collapse persistence ──────────────────────────────────────────────
 
 test('saveFeatureCollapse stores collapsed state in user preferences', function () {

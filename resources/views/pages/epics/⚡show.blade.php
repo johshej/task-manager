@@ -15,6 +15,7 @@ use App\Models\TaskHistory;
 use App\Services\FeatureTemplateApplier;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
@@ -89,6 +90,8 @@ new #[Title('Epic Board')] class extends Component {
     public string $editEpicTdd = '';
     public string $editEpicAiMode = '';
     public string $editEpicEnvironment = '';
+    public bool $editEpicNewFeaturesToTop = false;
+    public bool $editEpicNewTasksToTop = false;
 
     public function mount(Epic $epic): void
     {
@@ -158,6 +161,17 @@ new #[Title('Epic Board')] class extends Component {
         return $value === null ? '' : ($value ? '1' : '0');
     }
 
+    private function nextOrderIndex(HasMany $siblings, bool $toTop): int
+    {
+        if ($toTop) {
+            $siblings->increment('order_index');
+
+            return 0;
+        }
+
+        return $siblings->count();
+    }
+
     // ── Epic ──────────────────────────────────────────────────────────────────
 
     public function openEditEpic(): void
@@ -169,6 +183,8 @@ new #[Title('Epic Board')] class extends Component {
         $this->editEpicTdd = $this->boolToTddString($this->epic->tdd);
         $this->editEpicAiMode = $this->epic->ai_mode ?? '';
         $this->editEpicEnvironment = $this->epic->environment ?? '';
+        $this->editEpicNewFeaturesToTop = $this->epic->new_features_to_top;
+        $this->editEpicNewTasksToTop = $this->epic->new_tasks_to_top;
         $this->modal('edit-epic')->show();
     }
 
@@ -187,6 +203,8 @@ new #[Title('Epic Board')] class extends Component {
             'editEpicTdd' => ['nullable', 'in:0,1'],
             'editEpicAiMode' => ['nullable', 'string'],
             'editEpicEnvironment' => ['nullable', 'string', 'max:100'],
+            'editEpicNewFeaturesToTop' => ['boolean'],
+            'editEpicNewTasksToTop' => ['boolean'],
         ]);
 
         $this->epic->update([
@@ -197,6 +215,8 @@ new #[Title('Epic Board')] class extends Component {
             'tdd' => $this->tddNullable($this->editEpicTdd),
             'ai_mode' => $this->editEpicAiMode ?: null,
             'environment' => $this->editEpicEnvironment ?: null,
+            'new_features_to_top' => $this->editEpicNewFeaturesToTop,
+            'new_tasks_to_top' => $this->editEpicNewTasksToTop,
         ]);
 
         $this->epic->refresh();
@@ -245,7 +265,7 @@ new #[Title('Epic Board')] class extends Component {
             'name' => $this->newFeatureName,
             'description' => $this->newFeatureDescription ?: null,
             'status' => FeatureStatus::Todo,
-            'order_index' => $this->epic->features()->count(),
+            'order_index' => $this->nextOrderIndex($this->epic->features(), $this->epic->new_features_to_top),
             'tdd' => $this->tddNullable($this->newFeatureTdd),
             'ai_mode' => $this->newFeatureAiMode ?: null,
             'environment' => $this->newFeatureEnvironment ?: null,
@@ -384,7 +404,7 @@ new #[Title('Epic Board')] class extends Component {
             'description' => $this->newTaskDescription ?: null,
             'status' => TaskStatus::Todo,
             'priority' => $this->newTaskPriority,
-            'order_index' => $feature->tasks()->count(),
+            'order_index' => $this->nextOrderIndex($feature->tasks(), $this->epic->new_tasks_to_top),
             'tdd' => $this->tddNullable($this->newTaskTdd),
             'ai_mode' => $this->newTaskAiMode ?: null,
             'environment' => $this->newTaskEnvironment ?: null,
@@ -1332,6 +1352,19 @@ new #[Title('Epic Board')] class extends Component {
                         <flux:select.option value="Staging">{{ __('Staging') }}</flux:select.option>
                         <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
                     </flux:select>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <flux:switch
+                        wire:model="editEpicNewFeaturesToTop"
+                        :label="__('New features to top')"
+                        :description="__('Off adds new features to the bottom of the list (default).')"
+                    />
+                    <flux:switch
+                        wire:model="editEpicNewTasksToTop"
+                        :label="__('New tasks to top')"
+                        :description="__('Off adds new tasks to the bottom of their feature\'s list (default).')"
+                    />
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
