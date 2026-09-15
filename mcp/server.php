@@ -23,6 +23,8 @@ declare(strict_types=1);
  *   - feature_start    — mark active + set ACTIVE_FEATURE_ID
  *   - feature_status   — set feature status
  *   - feature_note     — add note to feature history
+ *   - feature_create   — create a feature under an epic, appended to the bottom
+ *   - task_create      — create a task under a feature, appended to the bottom
  *   - epic_list        — list all epics with full IDs
  *   - epic_note        — add note to epic history
  *   - config_show      — show resolved .task-manager config (token masked)
@@ -182,6 +184,20 @@ function tm_tools(): array
         ['name' => 'task_skip', 'description' => 'Stop working on the active task without changing its status. Clears ACTIVE_TASK_ID.',
             'inputSchema' => ['type' => 'object', 'properties' => ['cwd' => $cwdProp]]],
 
+        ['name' => 'task_create', 'description' => 'Create a task under a feature, appended to the bottom of the task list (order_index computed automatically, status defaults to todo).',
+            'inputSchema' => ['type' => 'object', 'required' => ['title'],
+                'properties' => [
+                    'feature_id' => $idProp,
+                    'title' => ['type' => 'string'],
+                    'description' => ['type' => 'string'],
+                    'status' => ['type' => 'string', 'description' => 'Defaults to todo.'],
+                    'priority' => ['type' => 'integer'],
+                    'tdd' => ['type' => 'boolean'],
+                    'ai_mode' => ['type' => 'string'],
+                    'environment' => ['type' => 'string'],
+                    'cwd' => $cwdProp,
+                ]]],
+
         ['name' => 'feature_get', 'description' => 'Get a feature by id.',
             'inputSchema' => ['type' => 'object', 'properties' => ['feature_id' => $idProp, 'cwd' => $cwdProp]]],
 
@@ -196,6 +212,19 @@ function tm_tools(): array
         ['name' => 'feature_note', 'description' => 'Add a note to a feature history.',
             'inputSchema' => ['type' => 'object', 'required' => ['body'],
                 'properties' => ['feature_id' => $idProp, 'body' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'feature_create', 'description' => 'Create a feature under an epic, appended to the bottom of the feature list (order_index computed automatically, status defaults to todo).',
+            'inputSchema' => ['type' => 'object', 'required' => ['name'],
+                'properties' => [
+                    'epic_id' => ['type' => 'string', 'description' => 'UUID. Optional — falls back to EPIC_ID in .task-manager.'],
+                    'name' => ['type' => 'string'],
+                    'description' => ['type' => 'string'],
+                    'status' => ['type' => 'string', 'description' => 'Defaults to todo.'],
+                    'tdd' => ['type' => 'boolean'],
+                    'ai_mode' => ['type' => 'string'],
+                    'environment' => ['type' => 'string'],
+                    'cwd' => $cwdProp,
+                ]]],
 
         ['name' => 'epic_list', 'description' => 'List all epics with their full IDs, names, and statuses.',
             'inputSchema' => ['type' => 'object', 'properties' => ['cwd' => $cwdProp]]],
@@ -291,6 +320,23 @@ function tm_call_tool(string $name, array $args): array
 
             return ['ok' => true, 'cleared_active_task_id' => $was];
 
+        case 'task_create':
+            $featureId = tm_require($cfg, 'ACTIVE_FEATURE_ID', $args['feature_id'] ?? null, 'feature_id');
+            $existing = tm_http($cfg, 'GET', "/features/$featureId/tasks");
+            $payload = array_filter([
+                'feature_id' => $featureId,
+                'title' => $args['title'],
+                'description' => $args['description'] ?? null,
+                'status' => $args['status'] ?? 'todo',
+                'priority' => $args['priority'] ?? null,
+                'order_index' => count($existing['data'] ?? []),
+                'tdd' => $args['tdd'] ?? null,
+                'ai_mode' => $args['ai_mode'] ?? null,
+                'environment' => $args['environment'] ?? null,
+            ], fn ($v) => $v !== null);
+
+            return tm_http($cfg, 'POST', '/tasks', $payload);
+
         case 'feature_get':
             $id = tm_require($cfg, 'ACTIVE_FEATURE_ID', $args['feature_id'] ?? null, 'feature_id');
 
@@ -312,6 +358,22 @@ function tm_call_tool(string $name, array $args): array
             $id = tm_require($cfg, 'ACTIVE_FEATURE_ID', $args['feature_id'] ?? null, 'feature_id');
 
             return tm_http($cfg, 'POST', "/features/$id/history", ['action' => 'note', 'body' => $args['body']]);
+
+        case 'feature_create':
+            $epicId = tm_require($cfg, 'EPIC_ID', $args['epic_id'] ?? null, 'epic_id');
+            $existing = tm_http($cfg, 'GET', "/epics/$epicId/features");
+            $payload = array_filter([
+                'epic_id' => $epicId,
+                'name' => $args['name'],
+                'description' => $args['description'] ?? null,
+                'status' => $args['status'] ?? 'todo',
+                'order_index' => count($existing['data'] ?? []),
+                'tdd' => $args['tdd'] ?? null,
+                'ai_mode' => $args['ai_mode'] ?? null,
+                'environment' => $args['environment'] ?? null,
+            ], fn ($v) => $v !== null);
+
+            return tm_http($cfg, 'POST', '/features', $payload);
 
         case 'epic_list':
             return tm_http($cfg, 'GET', '/epics');

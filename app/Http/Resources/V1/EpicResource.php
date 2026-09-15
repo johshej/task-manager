@@ -19,6 +19,8 @@ class EpicResource extends JsonResource
             'tdd' => $this->tdd,
             'ai_mode' => $this->ai_mode,
             'environment' => $this->environment,
+            'new_features_to_top' => $this->new_features_to_top,
+            'new_tasks_to_top' => $this->new_tasks_to_top,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

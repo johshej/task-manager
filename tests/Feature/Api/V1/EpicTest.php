@@ -88,6 +88,16 @@ test('can update an epic ai_mode, tdd, and environment', function () {
     ]);
 });
 
+test('shows the new feature/task position settings', function () {
+    $epic = Epic::factory()->create(['new_features_to_top' => true, 'new_tasks_to_top' => false]);
+
+    $this->withToken($this->token)
+        ->getJson("/api/v1/epics/{$epic->id}")
+        ->assertSuccessful()
+        ->assertJsonPath('data.new_features_to_top', true)
+        ->assertJsonPath('data.new_tasks_to_top', false);
+});
+
 test('can delete an epic', function () {
     $epic = Epic::factory()->create();
 
