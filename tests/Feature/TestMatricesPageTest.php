@@ -388,3 +388,144 @@ test('can rename the matrix', function () {
 
     expect($this->matrix->fresh()->name)->toBe('Everything');
 });
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+
+test('the grid page is wired to the keyboard script', function () {
+    $this->get(route('test-matrices.show', [$this->epic, $this->matrix]))
+        ->assertOk()
+        ->assertSee('data-view="test-matrix"', false)
+        ->assertSee('data-test-matrices-url="'.route('test-matrices', $this->epic).'"', false)
+        ->assertSee('x-on:test-matrix-action.window', false)
+        ->assertSee('data-selectable data-cell="'.$this->login->id.'/'.$this->desktop->id.'"', false);
+});
+
+test('the list page and the epic board are wired to the keyboard script', function () {
+    $this->get(route('test-matrices', $this->epic))
+        ->assertOk()
+        ->assertSee('data-view="test-matrices-index"', false)
+        ->assertSee('data-shortcut="new-test-matrix"', false)
+        ->assertSee('data-selectable data-href="'.route('test-matrices.show', [$this->epic, $this->matrix]).'"', false)
+        ->assertSee('data-delete-btn', false);
+
+    $this->get(route('epics.board', $this->epic))->assertSee('data-test-matrices-url="'.route('test-matrices', $this->epic).'"', false);
+});
+
+test('comments are selectable with the keyboard', function () {
+    $this->grid->addComment($this->login, [$this->desktop->id], ['title' => 'Log in fails']);
+
+    $this->get(route('test-matrices.show', [$this->epic, $this->matrix]))->assertSee('data-selectable data-comment=', false);
+});
+
+test('the forms can be saved with Ctrl+Enter', function () {
+    $html = $this->get(route('test-matrices.show', [$this->epic, $this->matrix]))->getContent();
+
+    foreach (['saveMatrix', 'saveScenario', 'saveContext', 'saveResult', 'saveComment'] as $method) {
+        expect($html)->toContain('@keydown.ctrl.enter.prevent="$wire.'.$method.'()"');
+    }
+});
+
+test('the status shortcuts mark the selected cell', function () {
+    $result = cell($this->login, $this->desktop);
+    $component = showMatrix();
+
+    $component->call('runShortcut', 'status-passed', $this->login->id, $this->desktop->id);
+    expect($result->fresh()->status)->toBe(TestResultStatus::Passed);
+
+    $component->call('runShortcut', 'status-failed', $this->login->id, $this->desktop->id);
+    expect($result->fresh()->status)->toBe(TestResultStatus::Failed);
+
+    $component->call('runShortcut', 'status-untested', $this->login->id, $this->desktop->id);
+    expect($result->fresh()->status)->toBe(TestResultStatus::Untested);
+
+    $component->call('runShortcut', 'cycle-status', $this->login->id, $this->desktop->id);
+    expect($result->fresh()->status)->toBe(TestResultStatus::Passed);
+});
+
+test('the keyboard script is told to select the cell again after the grid is redrawn', function () {
+    showMatrix()
+        ->call('runShortcut', 'status-passed', $this->login->id, $this->desktop->id)
+        ->assertDispatched('test-matrix-refreshed');
+});
+
+test('the relevance shortcut toggles the selected cell', function () {
+    $component = showMatrix();
+
+    $component->call('runShortcut', 'toggle-relevant', $this->login->id, $this->desktop->id);
+    expect(cell($this->login, $this->desktop)->relevant)->toBeFalse();
+
+    $component->call('runShortcut', 'toggle-relevant', $this->login->id, $this->desktop->id);
+    expect(cell($this->login, $this->desktop)->relevant)->toBeTrue();
+});
+
+test('the open and comment shortcuts open the dialogs for the selected cell', function () {
+    showMatrix()
+        ->call('runShortcut', 'open-cell', $this->login->id, $this->desktop->id)
+        ->assertSet('editingResultId', cell($this->login, $this->desktop)->id);
+
+    showMatrix()
+        ->call('runShortcut', 'new-comment', $this->login->id, $this->tablet->id)
+        ->assertSet('commentScenarioId', $this->login->id)
+        ->assertSet('commentContextIds', [$this->tablet->id]);
+});
+
+test('the edit and add shortcuts open the scenario, context and matrix dialogs', function () {
+    showMatrix()->call('runShortcut', 'edit-scenario', $this->login->id, $this->desktop->id)->assertSet('editingScenarioId', $this->login->id);
+    showMatrix()->call('runShortcut', 'edit-context', $this->login->id, $this->desktop->id)->assertSet('editingContextId', $this->desktop->id);
+    showMatrix()->call('runShortcut', 'new-scenario')->assertSet('editingScenarioId', null)->assertSet('scenarioTitle', '');
+    showMatrix()->call('runShortcut', 'new-context')->assertSet('editingContextId', null)->assertSet('contextCode', '');
+    showMatrix()->call('runShortcut', 'edit-matrix')->assertSet('matrixName', 'Roles and devices');
+});
+
+test('the move shortcuts reorder scenarios and contexts', function () {
+    $component = showMatrix();
+
+    $component->call('runShortcut', 'move-scenario-up', $this->logout->id, $this->desktop->id);
+    expect($this->matrix->scenarios()->pluck('title')->all())->toBe(['Log out', 'Log in']);
+
+    $component->call('runShortcut', 'move-scenario-down', $this->logout->id, $this->desktop->id);
+    expect($this->matrix->scenarios()->pluck('title')->all())->toBe(['Log in', 'Log out']);
+
+    $component->call('runShortcut', 'move-context-right', $this->login->id, $this->desktop->id);
+    expect($this->matrix->contexts()->pluck('code')->all())->toBe(['LT', 'LD', 'LDO']);
+
+    $component->call('runShortcut', 'move-context-left', $this->login->id, $this->desktop->id);
+    expect($this->matrix->contexts()->pluck('code')->all())->toBe(['LD', 'LT', 'LDO']);
+});
+
+test('the delete shortcuts ask before deleting a scenario, a context or a comment', function () {
+    $comment = $this->grid->addComment($this->login, [$this->desktop->id], ['title' => 'Fails']);
+
+    showMatrix()->call('runShortcut', 'delete-scenario', $this->login->id, $this->desktop->id)->assertSet('deletingScenarioId', $this->login->id);
+    showMatrix()->call('runShortcut', 'delete-context', $this->login->id, $this->desktop->id)->assertSet('deletingContextId', $this->desktop->id);
+    showMatrix()->call('runShortcut', 'delete-comment', null, null, $comment->id)->assertSet('deletingCommentId', $comment->id);
+
+    // Nothing was deleted by asking.
+    expect($this->matrix->scenarios()->count())->toBe(2)->and($this->matrix->contexts()->count())->toBe(3)->and($this->matrix->comments()->count())->toBe(1);
+});
+
+test('the open shortcut opens a comment', function () {
+    $comment = $this->grid->addComment($this->login, [$this->desktop->id], ['title' => 'Fails']);
+
+    showMatrix()->call('runShortcut', 'open-comment', null, null, $comment->id)->assertSet('editingCommentId', $comment->id)->assertSet('commentTitle', 'Fails');
+});
+
+test('shortcuts without what they need, and unknown ones, do nothing', function () {
+    showMatrix()
+        ->call('runShortcut', 'status-passed')
+        ->call('runShortcut', 'cycle-status', $this->login->id)
+        ->call('runShortcut', 'open-comment')
+        ->call('runShortcut', 'edit-scenario')
+        ->call('runShortcut', 'no-such-action', $this->login->id, $this->desktop->id)
+        ->assertHasNoErrors();
+
+    expect(cell($this->login, $this->desktop)->status)->toBe(TestResultStatus::Untested);
+});
+
+test('the keyboard script keeps Escape from going back while a dialog is open and lists the matrix shortcuts', function () {
+    $script = file_get_contents(public_path('js/shortcuts.js'));
+
+    expect($script)->toContain("document.querySelector('dialog[open]')")
+        ->and($script)->toContain('_modalWasOpenOnEscape')
+        ->and($script)->toContain('Test matrix grid');
+});

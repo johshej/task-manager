@@ -372,6 +372,54 @@ new #[Title('Test matrix')] class extends Component {
         Flux::toast(variant: 'success', text: 'Comment and its task deleted.');
     }
 
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+
+    /**
+     * What public/js/shortcuts.js asks for when a key is pressed on the grid: the cell, scenario, context or comment
+     * that is selected, and the action. Each action does what its button does.
+     */
+    public function runShortcut(string $action, ?string $scenarioId = null, ?string $contextId = null, ?string $commentId = null): void
+    {
+        $cell = $scenarioId !== null && $contextId !== null;
+
+        match (true) {
+            $action === 'new-scenario' => $this->openScenario(),
+            $action === 'new-context' => $this->openContext(),
+            $action === 'edit-matrix' => $this->openMatrix(),
+            $action === 'open-comment' && $commentId !== null => $this->openComment($commentId),
+            $action === 'delete-comment' && $commentId !== null => $this->confirmDeleteComment($commentId),
+            $action === 'edit-scenario' && $scenarioId !== null => $this->openScenario($scenarioId),
+            $action === 'edit-context' && $contextId !== null => $this->openContext($contextId),
+            $action === 'delete-scenario' && $scenarioId !== null => $this->confirmDeleteScenario($scenarioId),
+            $action === 'delete-context' && $contextId !== null => $this->confirmDeleteContext($contextId),
+            $action === 'move-scenario-up' && $scenarioId !== null => $this->moveScenario($scenarioId, 'up'),
+            $action === 'move-scenario-down' && $scenarioId !== null => $this->moveScenario($scenarioId, 'down'),
+            $action === 'move-context-left' && $contextId !== null => $this->moveContext($contextId, 'up'),
+            $action === 'move-context-right' && $contextId !== null => $this->moveContext($contextId, 'down'),
+            $action === 'cycle-status' && $cell => $this->cycleStatus($scenarioId, $contextId),
+            $action === 'status-passed' && $cell => $this->setStatus($scenarioId, $contextId, TestResultStatus::Passed),
+            $action === 'status-failed' && $cell => $this->setStatus($scenarioId, $contextId, TestResultStatus::Failed),
+            $action === 'status-untested' && $cell => $this->setStatus($scenarioId, $contextId, TestResultStatus::Untested),
+            $action === 'toggle-relevant' && $cell => $this->toggleRelevance($scenarioId, $contextId),
+            $action === 'open-cell' && $cell => $this->openResult($scenarioId, $contextId),
+            $action === 'new-comment' && $cell => $this->newComment($scenarioId, $contextId),
+            default => null,
+        };
+    }
+
+    private function setStatus(string $scenarioId, string $contextId, TestResultStatus $status): void
+    {
+        $this->resultFor($scenarioId, $contextId)->update(['status' => $status]);
+        $this->refreshGrid();
+    }
+
+    private function toggleRelevance(string $scenarioId, string $contextId): void
+    {
+        $result = $this->resultFor($scenarioId, $contextId);
+        $result->update(['relevant' => ! $result->relevant]);
+        $this->refreshGrid();
+    }
+
     // ── Data for the grid ─────────────────────────────────────────────────────
 
     /** @return Collection<int, TestContext> */
@@ -458,10 +506,18 @@ new #[Title('Test matrix')] class extends Component {
     private function refreshGrid(): void
     {
         unset($this->contexts, $this->scenarios, $this->results, $this->comments, $this->openCommentCounts, $this->summary);
+
+        // The keyboard selection goes back on the cell or comment it was on once the grid has been redrawn.
+        $this->dispatch('test-matrix-refreshed');
     }
 }; ?>
 
-<div class="flex h-full w-full flex-1 flex-col gap-6" data-view="test-matrix">
+<div
+    class="flex h-full w-full flex-1 flex-col gap-6"
+    data-view="test-matrix"
+    data-test-matrices-url="{{ route('test-matrices', $epic) }}"
+    x-on:test-matrix-action.window="$wire.runShortcut($event.detail.action, $event.detail.scenarioId, $event.detail.contextId, $event.detail.commentId)"
+>
     {{-- Header --}}
     <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between gap-2">
@@ -538,7 +594,7 @@ new #[Title('Test matrix')] class extends Component {
                                     $result = $this->results->get($scenario->id.'/'.$context->id);
                                     $openComments = $this->openCommentCounts[$scenario->id.'/'.$context->id] ?? 0;
                                 @endphp
-                                <td wire:key="cell-{{ $scenario->id }}-{{ $context->id }}" class="px-1 py-1 text-center" data-cell="{{ $scenario->id }}/{{ $context->id }}">
+                                <td wire:key="cell-{{ $scenario->id }}-{{ $context->id }}" class="px-1 py-1 text-center" data-selectable data-cell="{{ $scenario->id }}/{{ $context->id }}">
                                     @if (! $result || ! $result->relevant)
                                         <button type="button" wire:click="openResult('{{ $scenario->id }}', '{{ $context->id }}')" title="{{ __('Not relevant here — click to change') }}" class="w-full rounded px-2 py-1 text-zinc-300 hover:bg-zinc-100 dark:text-zinc-600 dark:hover:bg-zinc-800" data-state="not-relevant">–</button>
                                     @else
@@ -573,7 +629,7 @@ new #[Title('Test matrix')] class extends Component {
     <div class="space-y-2" data-comments>
         <flux:heading size="lg">{{ __('Comments') }}</flux:heading>
         @forelse ($this->comments as $comment)
-            <div wire:key="comment-{{ $comment->id }}" class="flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900" data-comment="{{ $comment->id }}">
+            <div wire:key="comment-{{ $comment->id }}" class="flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900" data-selectable data-comment="{{ $comment->id }}">
                 <div class="min-w-0 space-y-1">
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="button" wire:click="openComment('{{ $comment->id }}')" class="font-medium hover:underline">{{ $comment->task->title }}</button>
@@ -597,7 +653,7 @@ new #[Title('Test matrix')] class extends Component {
 
     {{-- Edit matrix --}}
     <flux:modal name="edit-test-matrix" :show="false" focusable class="md:w-[480px]">
-        <form wire:submit="saveMatrix" class="space-y-5">
+        <form wire:submit="saveMatrix" @keydown.ctrl.enter.prevent="$wire.saveMatrix()" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit matrix') }}</flux:heading>
             <flux:input wire:model="matrixName" :label="__('Name')" required />
             <flux:textarea wire:model="matrixDescription" :label="__('Description (optional)')" rows="3" />
@@ -610,7 +666,7 @@ new #[Title('Test matrix')] class extends Component {
 
     {{-- Scenario --}}
     <flux:modal name="scenario" focusable class="md:w-[560px]">
-        <form wire:submit="saveScenario" class="space-y-5">
+        <form wire:submit="saveScenario" @keydown.ctrl.enter.prevent="$wire.saveScenario()" class="space-y-5">
             <flux:heading size="lg">{{ $editingScenarioId ? __('Edit scenario') : __('Add scenario') }}</flux:heading>
             <flux:input wire:model="scenarioTitle" :label="__('Title')" required autofocus />
             <flux:textarea wire:model="scenarioDescription" :label="__('Description (optional)')" rows="3" />
@@ -673,7 +729,7 @@ new #[Title('Test matrix')] class extends Component {
 
     {{-- Context --}}
     <flux:modal name="context" focusable class="md:w-[560px]">
-        <form wire:submit="saveContext" class="space-y-5">
+        <form wire:submit="saveContext" @keydown.ctrl.enter.prevent="$wire.saveContext()" class="space-y-5">
             <flux:heading size="lg">{{ $editingContextId ? __('Edit context') : __('Add context') }}</flux:heading>
             <flux:text class="text-sm text-zinc-500">{{ __('A context is one named combination, such as "Log in / Desktop / Offline". The code is the short column header.') }}</flux:text>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -725,7 +781,7 @@ new #[Title('Test matrix')] class extends Component {
                 </flux:subheading>
             </div>
 
-            <form wire:submit="saveResult" class="space-y-4">
+            <form wire:submit="saveResult" @keydown.ctrl.enter.prevent="$wire.saveResult()" class="space-y-4">
                 <div class="flex flex-wrap items-center gap-4">
                     @foreach (TestResultStatus::cases() as $status)
                         <label class="flex cursor-pointer items-center gap-2 text-sm">
@@ -766,7 +822,7 @@ new #[Title('Test matrix')] class extends Component {
 
     {{-- Comment --}}
     <flux:modal name="comment" focusable class="md:w-[560px]">
-        <form wire:submit="saveComment" class="space-y-5">
+        <form wire:submit="saveComment" @keydown.ctrl.enter.prevent="$wire.saveComment()" class="space-y-5">
             <flux:heading size="lg">{{ $editingCommentId ? __('Edit comment') : __('Add comment') }}</flux:heading>
             <flux:text class="text-sm text-zinc-500">{{ __('A comment is a task. Give it to every context it affects.') }}</flux:text>
             <flux:input wire:model="commentTitle" :label="__('Title')" required autofocus />
