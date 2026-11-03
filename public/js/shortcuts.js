@@ -146,6 +146,18 @@
             ])}
           </div>
           <div>
+            <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Test matrix dialogs</div>
+            ${helpRows([
+              [['Ctrl', 'Enter'], 'Save (Cmd+Enter on a Mac)'],
+              [['Esc'], 'Cancel'],
+              [['Enter'], 'Confirm a deletion; add an automated test from its fields'],
+              [['p', 'x', 'u'], 'Cell: passed / failed / untested'],
+              [['r'], 'Cell: toggle relevant'],
+              [['c'], 'Cell: add a comment'],
+              [['a', 'n'], 'Lists of contexts or scenarios: all / none'],
+            ])}
+          </div>
+          <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Templates</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select template</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected</div>
@@ -598,6 +610,47 @@
     matrixObserver.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
   }
 
+  // Keys inside the dialogs of the test matrix pages (the dialog that is open; plain letters only work outside text fields).
+  function handleMatrixDialogKeys(e) {
+    // Dialogs can be stacked (the comment dialog opens on top of the cell dialog): the keys belong to the top one,
+    // which is the one that holds the focus, or else the one that comes last.
+    const open = Array.from(document.querySelectorAll('dialog[open]'));
+    const dialog = (document.activeElement && document.activeElement.closest('dialog[open]')) || open[open.length - 1];
+    if (!dialog) return;
+    const click = (el) => { if (el) { e.preventDefault(); el.click(); } };
+
+    // Ctrl+Enter / Cmd+Enter saves. Inside the form the form does it itself; with the focus outside it (the close button, the dialog) this does.
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      if (!(e.target.closest && e.target.closest('form'))) click(dialog.querySelector('[data-save-btn]'));
+      return;
+    }
+
+    // "Are you sure?": Enter confirms, Escape (the dialog's own) cancels.
+    if (dialog.querySelector('[data-confirm]')) {
+      if (e.key === 'Enter') click(dialog.querySelector('[data-confirm-btn]'));
+      return;
+    }
+
+    // The cell: P, X and U choose the status, R toggles relevance, C adds a comment.
+    if (dialog.querySelector('[data-cell-dialog]')) {
+      const status = { p: 'passed', x: 'failed', u: 'untested' }[e.key];
+      if (status) { click(dialog.querySelector('input[type="radio"][value="' + status + '"]')); return; }
+      if (e.key === 'r') { click(dialog.querySelector('[data-relevant-toggle]')); return; }
+      if (e.key === 'c') { click(dialog.querySelector('[data-add-comment-btn]')); return; }
+    }
+
+    // A list of checkboxes (relevant in, affects): A selects all, N none.
+    if ((e.key === 'a' || e.key === 'n') && dialog.querySelector('[data-checklist]')) {
+      e.preventDefault();
+      dialog.querySelectorAll('[data-checklist] input[type="checkbox"]').forEach((box) => { if (box.checked !== (e.key === 'a')) box.click(); });
+      return;
+    }
+
+    // Enter on a checkbox or radio saves, like in a text field.
+    const t = e.target;
+    if (e.key === 'Enter' && t && t.tagName === 'INPUT' && (t.type === 'checkbox' || t.type === 'radio')) click(dialog.querySelector('[data-save-btn]'));
+  }
+
   // ── Per-view handlers ─────────────────────────────────────────────────────
 
   function handlePerView(e) {
@@ -820,6 +873,9 @@
   window.addEventListener('keydown', (e) => {
     if (e.defaultPrevented) return;
 
+    // Ctrl+Enter / Cmd+Enter in a dialog of the test matrix pages saves it, wherever the focus is.
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && ['test-matrix', 'test-matrices-index'].includes(getView()) && document.querySelector('dialog[open]')) { handleMatrixDialogKeys(e); return; }
+
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     // Filter panel intercepts arrows/escape/f before isTyping check
@@ -851,7 +907,7 @@
     }
 
     // While a dialog is open on the test matrix pages nothing underneath reacts to the keyboard.
-    if ((view === 'test-matrix' || view === 'test-matrices-index') && document.querySelector('dialog[open]')) return;
+    if ((view === 'test-matrix' || view === 'test-matrices-index') && document.querySelector('dialog[open]')) { handleMatrixDialogKeys(e); return; }
 
     // Sequences: second key — checked before per-view handlers so "g" then "e"/"s"
     // always navigates, even on views where "e" is also a per-view shortcut (e.g. edit).

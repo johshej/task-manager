@@ -521,11 +521,19 @@ new #[Title('Test matrix')] class extends Component {
     {{-- Header --}}
     <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between gap-2">
-            <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('test-matrices', $epic)" wire:navigate />
+            <flux:tooltip content="Esc">
+                <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('test-matrices', $epic)" wire:navigate />
+            </flux:tooltip>
             <div class="flex items-center gap-2">
-                <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openMatrix">{{ __('Edit matrix') }}</flux:button>
-                <flux:button variant="filled" size="sm" icon="plus" wire:click="openContext" data-action="add-context">{{ __('Add context') }}</flux:button>
-                <flux:button variant="primary" size="sm" icon="plus" wire:click="openScenario" data-action="add-scenario">{{ __('Add scenario') }}</flux:button>
+                <flux:tooltip content="M">
+                    <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openMatrix">{{ __('Edit matrix') }}</flux:button>
+                </flux:tooltip>
+                <flux:tooltip content="Shift+N">
+                    <flux:button variant="filled" size="sm" icon="plus" wire:click="openContext" data-action="add-context">{{ __('Add context') }}</flux:button>
+                </flux:tooltip>
+                <flux:tooltip content="N / +">
+                    <flux:button variant="primary" size="sm" icon="plus" wire:click="openScenario" data-action="add-scenario">{{ __('Add scenario') }}</flux:button>
+                </flux:tooltip>
             </div>
         </div>
         <flux:heading size="xl">{{ $testMatrix->name }}</flux:heading>
@@ -553,18 +561,17 @@ new #[Title('Test matrix')] class extends Component {
                         <th class="sticky left-0 z-10 min-w-64 bg-zinc-50 px-3 py-2 text-left font-medium dark:bg-zinc-800">{{ __('Scenario') }}</th>
                         @foreach ($this->contexts as $context)
                             <th wire:key="context-{{ $context->id }}" class="px-1 py-2 text-center font-medium" data-context="{{ $context->id }}">
-                                <flux:tooltip :content="$context->name.($context->description ? ' — '.$context->description : '')">
+                                <flux:tooltip :content="$context->name.($context->description ? ' — '.$context->description : '').' (Shift+E)'">
                                     <button
                                         type="button"
                                         wire:click="openContext('{{ $context->id }}')"
-                                        title="{{ $context->name }}{{ $context->description ? ' — '.$context->description : '' }}"
                                         aria-label="{{ $context->name }}"
                                         class="rounded px-2 py-1 font-mono text-xs hover:bg-zinc-200 dark:hover:bg-zinc-700"
                                     >{{ $context->code }}</button>
                                 </flux:tooltip>
                                 <div class="flex justify-center gap-0.5 text-zinc-300 dark:text-zinc-600">
-                                    <button type="button" wire:click="moveContext('{{ $context->id }}', 'up')" class="px-1 hover:text-zinc-600 dark:hover:text-zinc-300" aria-label="{{ __('Move context left') }}" @disabled($loop->first)>‹</button>
-                                    <button type="button" wire:click="moveContext('{{ $context->id }}', 'down')" class="px-1 hover:text-zinc-600 dark:hover:text-zinc-300" aria-label="{{ __('Move context right') }}" @disabled($loop->last)>›</button>
+                                    <button type="button" wire:click="moveContext('{{ $context->id }}', 'up')" class="px-1 hover:text-zinc-600 dark:hover:text-zinc-300" aria-label="{{ __('Move context left') }}" title="{{ __('Move context left') }} (Shift+←)" @disabled($loop->first)>‹</button>
+                                    <button type="button" wire:click="moveContext('{{ $context->id }}', 'down')" class="px-1 hover:text-zinc-600 dark:hover:text-zinc-300" aria-label="{{ __('Move context right') }}" title="{{ __('Move context right') }} (Shift+→)" @disabled($loop->last)>›</button>
                                 </div>
                             </th>
                         @endforeach
@@ -576,7 +583,7 @@ new #[Title('Test matrix')] class extends Component {
                             <th class="sticky left-0 z-10 bg-white px-3 py-2 text-left font-normal dark:bg-zinc-900">
                                 <div class="flex items-start justify-between gap-2">
                                     <div class="min-w-0">
-                                        <button type="button" wire:click="openScenario('{{ $scenario->id }}')" class="text-left font-medium hover:underline">{{ $scenario->title }}</button>
+                                        <button type="button" wire:click="openScenario('{{ $scenario->id }}')" title="{{ __('Edit scenario') }} (E)" class="text-left font-medium hover:underline">{{ $scenario->title }}</button>
                                         @if ($scenario->automatedTests->isNotEmpty())
                                             <flux:tooltip :content="$scenario->automatedTests->map(fn ($test) => $test->name.($test->file_path ? ' ('.$test->file_path.')' : ''))->implode(', ')">
                                                 <flux:badge size="sm" color="sky" class="ml-1" data-automated-tests>{{ trans_choice(':count automated test|:count automated tests', $scenario->automatedTests->count()) }}</flux:badge>
@@ -584,8 +591,8 @@ new #[Title('Test matrix')] class extends Component {
                                         @endif
                                     </div>
                                     <div class="flex shrink-0 text-zinc-300 dark:text-zinc-600">
-                                        <button type="button" wire:click="moveScenario('{{ $scenario->id }}', 'up')" class="px-1 hover:text-zinc-600 dark:hover:text-zinc-300" aria-label="{{ __('Move scenario up') }}" @disabled($loop->first)>▲</button>
-                                        <button type="button" wire:click="moveScenario('{{ $scenario->id }}', 'down')" class="px-1 hover:text-zinc-600 dark:hover:text-zinc-300" aria-label="{{ __('Move scenario down') }}" @disabled($loop->last)>▼</button>
+                                        <button type="button" wire:click="moveScenario('{{ $scenario->id }}', 'up')" class="px-1 hover:text-zinc-600 dark:hover:text-zinc-300" aria-label="{{ __('Move scenario up') }}" title="{{ __('Move scenario up') }} (Shift+↑)" @disabled($loop->first)>▲</button>
+                                        <button type="button" wire:click="moveScenario('{{ $scenario->id }}', 'down')" class="px-1 hover:text-zinc-600 dark:hover:text-zinc-300" aria-label="{{ __('Move scenario down') }}" title="{{ __('Move scenario down') }} (Shift+↓)" @disabled($loop->last)>▼</button>
                                     </div>
                                 </div>
                             </th>
@@ -596,13 +603,13 @@ new #[Title('Test matrix')] class extends Component {
                                 @endphp
                                 <td wire:key="cell-{{ $scenario->id }}-{{ $context->id }}" class="px-1 py-1 text-center" data-selectable data-cell="{{ $scenario->id }}/{{ $context->id }}">
                                     @if (! $result || ! $result->relevant)
-                                        <button type="button" wire:click="openResult('{{ $scenario->id }}', '{{ $context->id }}')" title="{{ __('Not relevant here — click to change') }}" class="w-full rounded px-2 py-1 text-zinc-300 hover:bg-zinc-100 dark:text-zinc-600 dark:hover:bg-zinc-800" data-state="not-relevant">–</button>
+                                        <button type="button" wire:click="openResult('{{ $scenario->id }}', '{{ $context->id }}')" title="{{ __('Not relevant here — click to change') }} (R)" class="w-full rounded px-2 py-1 text-zinc-300 hover:bg-zinc-100 dark:text-zinc-600 dark:hover:bg-zinc-800" data-state="not-relevant">–</button>
                                     @else
                                         <div class="flex items-center justify-center gap-1">
                                             <button
                                                 type="button"
                                                 wire:click="cycleStatus('{{ $scenario->id }}', '{{ $context->id }}')"
-                                                title="{{ $result->status->label() }}{{ $result->expectation ? ' — '.__('expected').': '.$result->expectation : '' }}"
+                                                title="{{ $result->status->label() }}{{ $result->expectation ? ' — '.__('expected').': '.$result->expectation : '' }} — Space (P / X / U)"
                                                 class="size-7 rounded text-sm font-semibold {{ match ($result->status) {
                                                     TestResultStatus::Passed => 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-300',
                                                     TestResultStatus::Failed => 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300',
@@ -610,7 +617,7 @@ new #[Title('Test matrix')] class extends Component {
                                                 } }}"
                                                 data-state="{{ $result->status->value }}"
                                             >{{ match ($result->status) { TestResultStatus::Passed => '✓', TestResultStatus::Failed => '✗', TestResultStatus::Untested => '·' } }}</button>
-                                            <button type="button" wire:click="openResult('{{ $scenario->id }}', '{{ $context->id }}')" class="rounded px-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800" aria-label="{{ __('Details and comments') }}" title="{{ __('Details and comments') }}">⋯</button>
+                                            <button type="button" wire:click="openResult('{{ $scenario->id }}', '{{ $context->id }}')" class="rounded px-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800" aria-label="{{ __('Details and comments') }}" title="{{ __('Details and comments') }} (Enter)">⋯</button>
                                             @if ($openComments > 0)
                                                 <flux:badge size="sm" color="amber" data-comment-count>{{ $openComments }}</flux:badge>
                                             @endif
@@ -632,7 +639,7 @@ new #[Title('Test matrix')] class extends Component {
             <div wire:key="comment-{{ $comment->id }}" class="flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900" data-selectable data-comment="{{ $comment->id }}">
                 <div class="min-w-0 space-y-1">
                     <div class="flex flex-wrap items-center gap-2">
-                        <button type="button" wire:click="openComment('{{ $comment->id }}')" class="font-medium hover:underline">{{ $comment->task->title }}</button>
+                        <button type="button" wire:click="openComment('{{ $comment->id }}')" title="{{ __('Edit comment') }} (Enter)" class="font-medium hover:underline">{{ $comment->task->title }}</button>
                         <flux:badge size="sm" color="{{ $comment->task->status->color() }}">{{ $comment->task->status->label() }}</flux:badge>
                     </div>
                     <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $comment->scenario->title }}</div>
@@ -644,7 +651,7 @@ new #[Title('Test matrix')] class extends Component {
                         @endforeach
                     </div>
                 </div>
-                <flux:button variant="ghost" size="sm" icon="arrow-top-right-on-square" :href="route('epics.board.task', [$epic, $comment->task_id])" wire:navigate :aria-label="__('Open the task')" />
+                <flux:button variant="ghost" size="sm" icon="arrow-top-right-on-square" :href="route('epics.board.task', [$epic, $comment->task_id])" wire:navigate :aria-label="__('Open the task')" :title="__('Open the task')" />
             </div>
         @empty
             <flux:text class="text-sm text-zinc-400">{{ __('No comments yet. Open a cell to comment on a scenario for the contexts it affects.') }}</flux:text>
@@ -653,27 +660,30 @@ new #[Title('Test matrix')] class extends Component {
 
     {{-- Edit matrix --}}
     <flux:modal name="edit-test-matrix" :show="false" focusable class="md:w-[480px]">
-        <form wire:submit="saveMatrix" @keydown.ctrl.enter.prevent="$wire.saveMatrix()" class="space-y-5">
+        <form wire:submit="saveMatrix" @keydown.ctrl.enter.prevent="$wire.saveMatrix()" @keydown.meta.enter.prevent="$wire.saveMatrix()" class="space-y-5">
             <flux:heading size="lg">{{ __('Edit matrix') }}</flux:heading>
             <flux:input wire:model="matrixName" :label="__('Name')" required />
             <flux:textarea wire:model="matrixDescription" :label="__('Description (optional)')" rows="3" />
             <div class="flex justify-end gap-2">
-                <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
-                <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                <flux:tooltip content="Esc"><flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close></flux:tooltip>
+                <flux:tooltip content="Ctrl+Enter"><flux:button variant="primary" type="submit" data-save-btn>{{ __('Save') }}</flux:button></flux:tooltip>
             </div>
         </form>
     </flux:modal>
 
     {{-- Scenario --}}
     <flux:modal name="scenario" focusable class="md:w-[560px]">
-        <form wire:submit="saveScenario" @keydown.ctrl.enter.prevent="$wire.saveScenario()" class="space-y-5">
+        <form wire:submit="saveScenario" @keydown.ctrl.enter.prevent="$wire.saveScenario()" @keydown.meta.enter.prevent="$wire.saveScenario()" class="space-y-5">
             <flux:heading size="lg">{{ $editingScenarioId ? __('Edit scenario') : __('Add scenario') }}</flux:heading>
             <flux:input wire:model="scenarioTitle" :label="__('Title')" required autofocus />
             <flux:textarea wire:model="scenarioDescription" :label="__('Description (optional)')" rows="3" />
 
             <div>
-                <flux:label>{{ __('Relevant in') }}</flux:label>
-                <div class="mt-2 grid max-h-48 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2" data-relevance>
+                <div class="flex items-center justify-between" data-checklist-head>
+                    <flux:label>{{ __('Relevant in') }}</flux:label>
+                    <x-checklist-all-none />
+                </div>
+                <div class="mt-2 grid max-h-48 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2" data-relevance data-checklist>
                     @foreach ($this->contexts as $context)
                         <label class="flex cursor-pointer items-center gap-2 text-sm" title="{{ $context->name }}">
                             <input type="checkbox" wire:model="scenarioContextIds" value="{{ $context->id }}" class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600">
@@ -702,12 +712,14 @@ new #[Title('Test matrix')] class extends Component {
                         <flux:text class="text-sm text-zinc-400">{{ __('None listed.') }}</flux:text>
                     @endforelse
                     <div class="grid grid-cols-1 gap-2 sm:grid-cols-6">
-                        <flux:input class="sm:col-span-3" wire:model="automatedTestName" :placeholder="__('Test name')" />
-                        <flux:input class="sm:col-span-2" wire:model="automatedTestFilePath" :placeholder="__('File path')" />
-                        <flux:input class="sm:col-span-1" wire:model="automatedTestKind" :placeholder="__('Kind')" />
+                        <flux:input class="sm:col-span-3" wire:model="automatedTestName" wire:keydown.enter.prevent="addAutomatedTest" :placeholder="__('Test name')" />
+                        <flux:input class="sm:col-span-2" wire:model="automatedTestFilePath" wire:keydown.enter.prevent="addAutomatedTest" :placeholder="__('File path')" />
+                        <flux:input class="sm:col-span-1" wire:model="automatedTestKind" wire:keydown.enter.prevent="addAutomatedTest" :placeholder="__('Kind')" />
                     </div>
                     <flux:error name="automatedTestName" />
-                    <flux:button type="button" size="sm" icon="plus" wire:click="addAutomatedTest">{{ __('Add automated test') }}</flux:button>
+                    <flux:tooltip content="Enter">
+                        <flux:button type="button" size="sm" icon="plus" wire:click="addAutomatedTest">{{ __('Add automated test') }}</flux:button>
+                    </flux:tooltip>
                 </div>
             @else
                 <flux:text class="text-sm text-zinc-400">{{ __('Automated tests can be listed once the scenario is saved.') }}</flux:text>
@@ -720,8 +732,8 @@ new #[Title('Test matrix')] class extends Component {
                     @endif
                 </div>
                 <div class="flex gap-2">
-                    <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
-                    <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                    <flux:tooltip content="Esc"><flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close></flux:tooltip>
+                    <flux:tooltip content="Ctrl+Enter"><flux:button variant="primary" type="submit" data-save-btn>{{ __('Save') }}</flux:button></flux:tooltip>
                 </div>
             </div>
         </form>
@@ -729,7 +741,7 @@ new #[Title('Test matrix')] class extends Component {
 
     {{-- Context --}}
     <flux:modal name="context" focusable class="md:w-[560px]">
-        <form wire:submit="saveContext" @keydown.ctrl.enter.prevent="$wire.saveContext()" class="space-y-5">
+        <form wire:submit="saveContext" @keydown.ctrl.enter.prevent="$wire.saveContext()" @keydown.meta.enter.prevent="$wire.saveContext()" class="space-y-5">
             <flux:heading size="lg">{{ $editingContextId ? __('Edit context') : __('Add context') }}</flux:heading>
             <flux:text class="text-sm text-zinc-500">{{ __('A context is one named combination, such as "Log in / Desktop / Offline". The code is the short column header.') }}</flux:text>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -739,8 +751,11 @@ new #[Title('Test matrix')] class extends Component {
             <flux:textarea wire:model="contextDescription" :label="__('Description (optional)')" rows="3" />
 
             <div>
-                <flux:label>{{ __('Scenarios that are relevant here') }}</flux:label>
-                <div class="mt-2 max-h-48 space-y-1 overflow-y-auto" data-relevance>
+                <div class="flex items-center justify-between" data-checklist-head>
+                    <flux:label>{{ __('Scenarios that are relevant here') }}</flux:label>
+                    <x-checklist-all-none />
+                </div>
+                <div class="mt-2 max-h-48 space-y-1 overflow-y-auto" data-relevance data-checklist>
                     @foreach ($this->scenarios as $scenario)
                         <label class="flex cursor-pointer items-center gap-2 text-sm">
                             <input type="checkbox" wire:model="contextScenarioIds" value="{{ $scenario->id }}" class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600">
@@ -757,8 +772,8 @@ new #[Title('Test matrix')] class extends Component {
                     @endif
                 </div>
                 <div class="flex gap-2">
-                    <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
-                    <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                    <flux:tooltip content="Esc"><flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close></flux:tooltip>
+                    <flux:tooltip content="Ctrl+Enter"><flux:button variant="primary" type="submit" data-save-btn>{{ __('Save') }}</flux:button></flux:tooltip>
                 </div>
             </div>
         </form>
@@ -770,7 +785,7 @@ new #[Title('Test matrix')] class extends Component {
             $resultRecord = $editingResultId ? \App\Models\TestResult::with(['scenario', 'context'])->find($editingResultId) : null;
             $cellComments = $resultRecord ? $this->comments->filter(fn ($comment) => $comment->test_scenario_id === $resultRecord->test_scenario_id && $comment->contexts->contains('id', $resultRecord->test_context_id)) : collect();
         @endphp
-        <div class="space-y-5">
+        <div class="space-y-5" data-cell-dialog>
             <div>
                 <flux:heading size="lg">{{ $resultRecord?->scenario->title }}</flux:heading>
                 <flux:subheading>
@@ -781,23 +796,23 @@ new #[Title('Test matrix')] class extends Component {
                 </flux:subheading>
             </div>
 
-            <form wire:submit="saveResult" @keydown.ctrl.enter.prevent="$wire.saveResult()" class="space-y-4">
+            <form wire:submit="saveResult" @keydown.ctrl.enter.prevent="$wire.saveResult()" @keydown.meta.enter.prevent="$wire.saveResult()" class="space-y-4">
                 <div class="flex flex-wrap items-center gap-4">
                     @foreach (TestResultStatus::cases() as $status)
-                        <label class="flex cursor-pointer items-center gap-2 text-sm">
+                        <label class="flex cursor-pointer items-center gap-2 text-sm" title="{{ $status->label() }} ({{ match ($status) { TestResultStatus::Passed => 'P', TestResultStatus::Failed => 'X', TestResultStatus::Untested => 'U' } }})">
                             <input type="radio" wire:model="resultStatus" value="{{ $status->value }}" class="border-zinc-300 text-blue-600 focus:ring-blue-500">
                             <flux:badge size="sm" color="{{ $status->color() }}">{{ $status->label() }}</flux:badge>
                         </label>
                     @endforeach
                 </div>
-                <label class="flex cursor-pointer items-center gap-2 text-sm">
-                    <input type="checkbox" wire:model="resultRelevant" class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600">
+                <label class="flex cursor-pointer items-center gap-2 text-sm" title="R">
+                    <input type="checkbox" wire:model="resultRelevant" data-relevant-toggle class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600">
                     {{ __('This scenario is relevant in this context') }}
                 </label>
                 <flux:input wire:model="resultExpectation" :label="__('Expected here (optional)')" :placeholder="__('For example: Refused, or Read only')" />
                 <div class="flex justify-end gap-2">
-                    <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
-                    <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                    <flux:tooltip content="Esc"><flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close></flux:tooltip>
+                    <flux:tooltip content="Ctrl+Enter"><flux:button variant="primary" type="submit" data-save-btn>{{ __('Save') }}</flux:button></flux:tooltip>
                 </div>
             </form>
 
@@ -805,7 +820,9 @@ new #[Title('Test matrix')] class extends Component {
                 <div class="flex items-center justify-between">
                     <flux:heading size="sm">{{ __('Comments here') }}</flux:heading>
                     @if ($resultRecord)
-                        <flux:button size="sm" icon="plus" wire:click="newComment('{{ $resultRecord->test_scenario_id }}', '{{ $resultRecord->test_context_id }}')">{{ __('Add comment') }}</flux:button>
+                        <flux:tooltip content="C">
+                            <flux:button size="sm" icon="plus" data-add-comment-btn wire:click="newComment('{{ $resultRecord->test_scenario_id }}', '{{ $resultRecord->test_context_id }}')">{{ __('Add comment') }}</flux:button>
+                        </flux:tooltip>
                     @endif
                 </div>
                 @forelse ($cellComments as $comment)
@@ -822,7 +839,7 @@ new #[Title('Test matrix')] class extends Component {
 
     {{-- Comment --}}
     <flux:modal name="comment" focusable class="md:w-[560px]">
-        <form wire:submit="saveComment" @keydown.ctrl.enter.prevent="$wire.saveComment()" class="space-y-5">
+        <form wire:submit="saveComment" @keydown.ctrl.enter.prevent="$wire.saveComment()" @keydown.meta.enter.prevent="$wire.saveComment()" class="space-y-5">
             <flux:heading size="lg">{{ $editingCommentId ? __('Edit comment') : __('Add comment') }}</flux:heading>
             <flux:text class="text-sm text-zinc-500">{{ __('A comment is a task. Give it to every context it affects.') }}</flux:text>
             <flux:input wire:model="commentTitle" :label="__('Title')" required autofocus />
@@ -834,8 +851,11 @@ new #[Title('Test matrix')] class extends Component {
             </flux:select>
 
             <div>
-                <flux:label>{{ __('Affects') }}</flux:label>
-                <div class="mt-2 grid max-h-48 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2" data-comment-contexts>
+                <div class="flex items-center justify-between" data-checklist-head>
+                    <flux:label>{{ __('Affects') }}</flux:label>
+                    <x-checklist-all-none />
+                </div>
+                <div class="mt-2 grid max-h-48 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2" data-comment-contexts data-checklist>
                     @foreach ($this->contexts as $context)
                         <label class="flex cursor-pointer items-center gap-2 text-sm" title="{{ $context->name }}">
                             <input type="checkbox" wire:model="commentContextIds" value="{{ $context->id }}" class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600">
@@ -854,8 +874,8 @@ new #[Title('Test matrix')] class extends Component {
                     @endif
                 </div>
                 <div class="flex gap-2">
-                    <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
-                    <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                    <flux:tooltip content="Esc"><flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close></flux:tooltip>
+                    <flux:tooltip content="Ctrl+Enter"><flux:button variant="primary" type="submit" data-save-btn>{{ __('Save') }}</flux:button></flux:tooltip>
                 </div>
             </div>
         </form>
@@ -868,14 +888,14 @@ new #[Title('Test matrix')] class extends Component {
         'delete-comment' => ['Delete comment', 'This deletes the comment and its task.', 'deleteComment'],
     ] as $modalName => [$heading, $text, $action])
         <flux:modal name="{{ $modalName }}" class="w-full sm:min-w-[22rem]">
-            <div class="space-y-6">
+            <div class="space-y-6" data-confirm>
                 <div>
                     <flux:heading size="lg">{{ __($heading) }}</flux:heading>
                     <flux:text class="mt-2">{{ __($text) }}</flux:text>
                 </div>
                 <div class="flex justify-end gap-2">
-                    <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
-                    <flux:button variant="danger" wire:click="{{ $action }}">{{ __('Delete') }}</flux:button>
+                    <flux:tooltip content="Esc"><flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close></flux:tooltip>
+                    <flux:tooltip content="Enter"><flux:button variant="danger" data-confirm-btn wire:click="{{ $action }}">{{ __('Delete') }}</flux:button></flux:tooltip>
                 </div>
             </div>
         </flux:modal>
