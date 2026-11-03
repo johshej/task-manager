@@ -902,7 +902,7 @@ new #[Title('Epic Board')] class extends Component {
     }
 }; ?>
 
-<div class="flex h-full w-full flex-1 flex-col gap-6" data-view="epic-board">
+<div class="flex h-full w-full flex-1 flex-col gap-6" data-view="epic-board" data-test-matrices-url="{{ route('test-matrices', $epic) }}">
 
     {{-- Page header --}}
     <div class="flex flex-col gap-1">

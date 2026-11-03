@@ -67,7 +67,7 @@ new #[Title('Test matrices')] class extends Component {
     <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between gap-2">
             <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('epics.board', $epic)" wire:navigate />
-            <flux:modal.trigger name="create-test-matrix">
+            <flux:modal.trigger name="create-test-matrix" data-shortcut="new-test-matrix">
                 <flux:button variant="primary" size="sm" icon="plus">{{ __('New test matrix') }}</flux:button>
             </flux:modal.trigger>
         </div>
@@ -80,7 +80,7 @@ new #[Title('Test matrices')] class extends Component {
             @php
                 $summary = $matrix->summary();
             @endphp
-            <div wire:key="matrix-{{ $matrix->id }}" class="flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900" data-matrix="{{ $matrix->id }}">
+            <div wire:key="matrix-{{ $matrix->id }}" class="flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900" data-selectable data-href="{{ route('test-matrices.show', [$epic, $matrix]) }}" data-matrix="{{ $matrix->id }}">
                 <div class="min-w-0 space-y-1">
                     <a href="{{ route('test-matrices.show', [$epic, $matrix]) }}" wire:navigate class="text-base font-semibold hover:underline">{{ $matrix->name }}</a>
                     @if ($matrix->description)
@@ -94,7 +94,7 @@ new #[Title('Test matrices')] class extends Component {
                         <flux:badge size="sm" color="zinc">{{ __('Untested') }} · {{ $summary['untested'] }}</flux:badge>
                     </div>
                 </div>
-                <flux:button variant="ghost" size="sm" icon="trash" :aria-label="__('Delete test matrix')" wire:click="confirmDeleteMatrix('{{ $matrix->id }}')" />
+                <flux:button variant="ghost" size="sm" icon="trash" :aria-label="__('Delete test matrix')" data-delete-btn wire:click="confirmDeleteMatrix('{{ $matrix->id }}')" />
             </div>
         @empty
             <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-20 dark:border-zinc-700 dark:bg-zinc-900/50">
@@ -105,7 +105,7 @@ new #[Title('Test matrices')] class extends Component {
     </div>
 
     <flux:modal name="create-test-matrix" :show="$errors->isNotEmpty()" focusable class="md:w-[480px]">
-        <form wire:submit="createMatrix" class="space-y-5">
+        <form wire:submit="createMatrix" @keydown.ctrl.enter.prevent="$wire.createMatrix()" class="space-y-5">
             <flux:heading size="lg">{{ __('New test matrix') }}</flux:heading>
             <flux:input wire:model="name" :label="__('Name')" autofocus required />
             <flux:textarea wire:model="description" :label="__('Description (optional)')" rows="3" />

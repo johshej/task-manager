@@ -44,13 +44,23 @@
   // "was a popover open" state as early as possible so the Escape-goes-back
   // shortcut below can still see it after the popover has already closed.
   let _popoverWasOpenOnEscape = false;
+  // Same for a modal dialog: Escape closes it natively, and that must be all it does.
+  let _modalWasOpenOnEscape = false;
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       _popoverWasOpenOnEscape = !!document.querySelector('[popover]:popover-open');
+      _modalWasOpenOnEscape = !!document.querySelector('dialog[open]');
     }
   }, true);
 
   // ── Help overlay ──────────────────────────────────────────────────────────
+
+  const kbdStyle = 'background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px';
+  // Rows of [keys, label] as help lines; keys shown with "+" between modifier and key, "/" between alternatives.
+  const helpRows = (rows) => rows.map(([keys, label]) => {
+    const joiner = keys[0] === 'Shift' || keys[0] === 'Ctrl' ? '+' : ' / ';
+    return '<div>' + keys.map((k) => '<kbd style="' + kbdStyle + '">' + k + '</kbd>').join(joiner) + ' &nbsp; ' + label + '</div>';
+  }).join('');
 
   const helpHtml = `
     <div id="kb-help-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;">
@@ -103,6 +113,39 @@
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Esc</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">f</kbd> &nbsp; Close &amp; return</div>
           </div>
           <div>
+            <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Test matrices</div>
+            ${helpRows([
+              [['↑', '↓'], 'Select matrix'],
+              [['Enter'], 'Open matrix'],
+              [['n', '+'], 'New matrix'],
+              [['Delete'], 'Delete selected matrix'],
+              [['m'], 'Test matrices (from the epic board)'],
+            ])}
+          </div>
+          <div>
+            <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Test matrix grid</div>
+            ${helpRows([
+              [['↑', '↓', '←', '→'], 'Select cell (↓ from the last row: comments)'],
+              [['Home', 'End'], 'First / last context'],
+              [['Space'], 'Cycle status: untested, passed, failed'],
+              [['p', 'x', 'u'], 'Mark passed / failed / untested'],
+              [['r'], 'Toggle relevant in this context'],
+              [['Enter'], 'Open cell (details and comments)'],
+              [['c'], 'Comment on the cell'],
+              [['e'], 'Edit scenario (comment, when selected)'],
+              [['Shift', 'e'], 'Edit context'],
+              [['n', '+'], 'Add scenario'],
+              [['Shift', 'n'], 'Add context'],
+              [['m'], 'Edit matrix'],
+              [['Shift', '↑', '↓'], 'Move scenario'],
+              [['Shift', '←', '→'], 'Move context'],
+              [['Delete'], 'Delete scenario / comment'],
+              [['Shift', 'Delete'], 'Delete context'],
+              [['Ctrl', 'Enter'], 'Save form'],
+              [['Esc'], 'Close dialog'],
+            ])}
+          </div>
+          <div>
             <div style="font-weight:600;color:#a1a1aa;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Templates</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↑</kbd> / <kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">↓</kbd> &nbsp; Select template</div>
             <div><kbd style="background:#27272a;border:1px solid #52525b;border-radius:4px;padding:1px 5px">Enter</kbd> &nbsp; Open selected</div>
@@ -133,9 +176,16 @@
 
   // ── Selection helpers ─────────────────────────────────────────────────────
 
+  let lastMatrixKey = null;
+
   function setActive(el) {
     document.querySelectorAll('[data-selectable].active').forEach((n) => n.classList.remove('active'));
-    if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); }
+    if (el) {
+      el.classList.add('active');
+      el.scrollIntoView({ block: 'nearest' });
+      // Remembered so a test matrix can pick the same cell or comment out again after it is redrawn.
+      lastMatrixKey = el.getAttribute('data-cell') || el.getAttribute('data-comment') || lastMatrixKey;
+    }
   }
 
   function isDomVisible(el) {
@@ -468,6 +518,86 @@
     boxes[Math.max(0, Math.min(boxes.length - 1, idx + delta))].focus();
   }
 
+  // ── Test matrices ─────────────────────────────────────────────────────────
+
+  const matrixRows = () => Array.from(document.querySelectorAll('[data-grid] tbody tr[data-scenario]'));
+  const matrixCellsOf = (row) => Array.from(row.querySelectorAll('[data-cell]'));
+  const matrixComments = () => Array.from(document.querySelectorAll('[data-comment]'));
+
+  function testMatricesUrl() {
+    const el = document.querySelector('[data-test-matrices-url]');
+    return el ? el.getAttribute('data-test-matrices-url') : null;
+  }
+
+  // Arrows move over the cells of the grid; down from the last row goes on to the comments, and up from the first one back.
+  function moveMatrixSelection(deltaRow, deltaColumn) {
+    const rows = matrixRows();
+    const comments = matrixComments();
+    const active = currentActive();
+
+    if (active && active.hasAttribute('data-comment')) {
+      const at = comments.indexOf(active);
+      if (deltaRow > 0 && comments[at + 1]) setActive(comments[at + 1]);
+      if (deltaRow < 0) {
+        if (at > 0) setActive(comments[at - 1]);
+        else if (rows.length) { const cells = matrixCellsOf(rows[rows.length - 1]); if (cells.length) setActive(cells[0]); }
+      }
+      return;
+    }
+
+    if (!active || !active.hasAttribute('data-cell')) {
+      const first = document.querySelector('[data-grid] [data-cell]') || comments[0];
+      if (first) setActive(first);
+      return;
+    }
+
+    const row = active.closest('tr');
+    const rowIndex = rows.indexOf(row);
+    const columnIndex = matrixCellsOf(row).indexOf(active);
+    if (deltaRow > 0 && rowIndex === rows.length - 1) { if (comments[0]) setActive(comments[0]); return; }
+
+    const nextCells = matrixCellsOf(rows[Math.max(0, Math.min(rows.length - 1, rowIndex + deltaRow))]);
+    const target = nextCells[Math.max(0, Math.min(nextCells.length - 1, columnIndex + deltaColumn))];
+    if (target) setActive(target);
+  }
+
+  // Home and End: the first and the last context in the row.
+  function moveMatrixToEdge(last) {
+    const active = currentActive();
+    if (!active || !active.hasAttribute('data-cell')) return;
+    const cells = matrixCellsOf(active.closest('tr'));
+    if (cells.length) setActive(cells[last ? cells.length - 1 : 0]);
+  }
+
+  // The page is redrawn after almost every action, which drops the selection. It is put back on the same cell or
+  // comment (or the first cell when that one is gone).
+  function restoreMatrixSelection() {
+    if (getView() !== 'test-matrix') return;
+    const keep = lastMatrixKey && (document.querySelector('[data-cell="' + lastMatrixKey + '"]') || document.querySelector('[data-comment="' + lastMatrixKey + '"]'));
+    const target = keep || document.querySelector('[data-grid] [data-cell]') || document.querySelector('[data-comment]');
+    if (target) setActive(target);
+  }
+
+  window.addEventListener('test-matrix-refreshed', function () { setTimeout(restoreMatrixSelection, 0); });
+
+  let matrixObserver = null;
+
+  function watchMatrixSelection() {
+    if (matrixObserver) { matrixObserver.disconnect(); matrixObserver = null; }
+    const root = document.querySelector('[data-view="test-matrix"]');
+    if (!root) return;
+    let scheduled = false;
+    matrixObserver = new MutationObserver(function () {
+      if (scheduled) return;
+      scheduled = true;
+      setTimeout(function () {
+        scheduled = false;
+        if (!document.querySelector('[data-selectable].active')) restoreMatrixSelection();
+      }, 0);
+    });
+    matrixObserver.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  }
+
   // ── Per-view handlers ─────────────────────────────────────────────────────
 
   function handlePerView(e) {
@@ -548,6 +678,62 @@
       if (e.key === 'f') {
         e.preventDefault(); handled = true;
         if (isFilterOpen()) { closeFilter(); } else { openFilter(); }
+      }
+    }
+
+    if (view === 'epic-board') {
+      if (e.key === 'm') { const url = testMatricesUrl(); if (url) { e.preventDefault(); handled = true; goto(url); } }
+    }
+
+    if (view === 'test-matrices-index') {
+      if (e.key === 'ArrowUp')   { e.preventDefault(); handled = true; moveSelection(-1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); handled = true; moveSelection(1); }
+      if (e.key === 'Enter') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a && a.dataset.href) goto(a.dataset.href);
+      }
+      if (e.key === 'n' || e.key === '+' || e.code === 'Equal') { e.preventDefault(); handled = true; shortcut('new-test-matrix'); }
+      if (e.key === 'Delete') {
+        e.preventDefault(); handled = true;
+        const a = currentActive();
+        if (a) { const btn = a.querySelector('[data-delete-btn]'); if (btn) btn.click(); }
+      }
+    }
+
+    if (view === 'test-matrix') {
+      const active = currentActive();
+      const cell = active && active.hasAttribute('data-cell') ? active : null;
+      const comment = active && active.hasAttribute('data-comment') ? active : null;
+      const [scenarioId, contextId] = cell ? cell.getAttribute('data-cell').split('/') : [null, null];
+      // The page does the work: it listens for this event and runs the matching action.
+      const act = (action) => window.dispatchEvent(new CustomEvent('test-matrix-action', {
+        detail: { action, scenarioId, contextId, commentId: comment ? comment.getAttribute('data-comment') : null },
+      }));
+      const run = (action) => { e.preventDefault(); handled = true; act(action); };
+
+      if (e.key === 'ArrowUp')    { e.preventDefault(); handled = true; if (e.shiftKey) { if (cell) act('move-scenario-up'); } else moveMatrixSelection(-1, 0); }
+      if (e.key === 'ArrowDown')  { e.preventDefault(); handled = true; if (e.shiftKey) { if (cell) act('move-scenario-down'); } else moveMatrixSelection(1, 0); }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); handled = true; if (e.shiftKey) { if (cell) act('move-context-left'); } else moveMatrixSelection(0, -1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); handled = true; if (e.shiftKey) { if (cell) act('move-context-right'); } else moveMatrixSelection(0, 1); }
+      if (e.key === 'Home') { e.preventDefault(); handled = true; moveMatrixToEdge(false); }
+      if (e.key === 'End')  { e.preventDefault(); handled = true; moveMatrixToEdge(true); }
+
+      if (e.key === ' ' && cell) run('cycle-status');
+      if (e.key === 'p' && cell) run('status-passed');
+      if (e.key === 'x' && cell) run('status-failed');
+      if (e.key === 'u' && cell) run('status-untested');
+      if (e.key === 'r' && cell) run('toggle-relevant');
+      if (e.key === 'c' && cell) run('new-comment');
+      if (e.key === 'Enter') { if (cell) run('open-cell'); else if (comment) run('open-comment'); }
+      if (e.key === 'e') { if (cell) run('edit-scenario'); else if (comment) run('open-comment'); else run('edit-matrix'); }
+      if (e.key === 'E' && cell) run('edit-context');
+      if (e.key === 'n' || e.key === '+') run('new-scenario');
+      if (e.key === 'N') run('new-context');
+      if (e.key === 'm') run('edit-matrix');
+      if (e.key === 'Delete') {
+        if (comment) run('delete-comment');
+        else if (cell) run(e.shiftKey ? 'delete-context' : 'delete-scenario');
       }
     }
 
@@ -651,22 +837,28 @@
 
     if (e.key === '?') { e.preventDefault(); showHelp(); return; }
 
+    const view = getView();
+
     if (e.key === 'Escape') {
       const hadHelp = !!document.getElementById('kb-help-overlay');
       hideHelp();
       const hadOverlay = Array.from(document.querySelectorAll('[data-fullscreen-overlay]')).some((el) => el.offsetParent !== null);
-      if (!hadHelp && !hadOverlay && !_popoverWasOpenOnEscape && window.history && window.history.length > 1) {
+      if (!hadHelp && !hadOverlay && !_popoverWasOpenOnEscape && !_modalWasOpenOnEscape && window.history && window.history.length > 1) {
         e.preventDefault();
         window.history.back();
       }
       return;
     }
 
+    // While a dialog is open on the test matrix pages nothing underneath reacts to the keyboard.
+    if ((view === 'test-matrix' || view === 'test-matrices-index') && document.querySelector('dialog[open]')) return;
+
     // Sequences: second key — checked before per-view handlers so "g" then "e"/"s"
     // always navigates, even on views where "e" is also a per-view shortcut (e.g. edit).
     if (seq === 'g' && e.key === 'e') { e.preventDefault(); if (routes.epics) goto(routes.epics); resetSeq(); return; }
     if (seq === 'g' && e.key === 't') { e.preventDefault(); if (routes.templates) goto(routes.templates); resetSeq(); return; }
     if (seq === 'g' && e.key === 'd') { e.preventDefault(); if (routes.dashboard) goto(routes.dashboard); resetSeq(); return; }
+    if (seq === 'g' && e.key === 'm' && testMatricesUrl()) { e.preventDefault(); goto(testMatricesUrl()); resetSeq(); return; }
     if (seq === 'g' && e.key === 's') { e.preventDefault(); if (routes.settings) goto(routes.settings); resetSeq(); return; }
 
     if (handlePerView(e)) return;
@@ -685,6 +877,8 @@
   function init() {
     const view = getView();
     if (view === 'epics-index') selectFirst('[data-list="epics"]');
+    if (view === 'test-matrices-index') selectFirst('[data-list="test-matrices"]');
+    if (view === 'test-matrix') { watchMatrixSelection(); const first = document.querySelector('[data-grid] [data-cell]') || document.querySelector('[data-comment]'); if (first) setActive(first); }
     if (view === 'templates-index') selectFirst('[data-list="feature-templates"]') || selectFirst('[data-list="epic-templates"]');
     const highlighted = document.querySelector('[data-selectable][data-highlighted]');
     if (highlighted) setTimeout(() => setActive(highlighted), 0);
