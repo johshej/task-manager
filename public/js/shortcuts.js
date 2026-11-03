@@ -153,6 +153,7 @@
               [['Enter'], 'Confirm a deletion; add an automated test from its fields'],
               [['p', 'x', 'u'], 'Cell: passed / failed / untested'],
               [['r'], 'Cell: toggle relevant'],
+              [['e'], 'Cell: expected here'],
               [['c'], 'Cell: add a comment'],
               [['a', 'n'], 'Lists of contexts or scenarios: all / none'],
             ])}
@@ -631,11 +632,12 @@
       return;
     }
 
-    // The cell: P, X and U choose the status, R toggles relevance, C adds a comment.
+    // The cell: P, X and U choose the status, R toggles relevance, E goes to the expectation, C adds a comment.
     if (dialog.querySelector('[data-cell-dialog]')) {
       const status = { p: 'passed', x: 'failed', u: 'untested' }[e.key];
       if (status) { click(dialog.querySelector('input[type="radio"][value="' + status + '"]')); return; }
       if (e.key === 'r') { click(dialog.querySelector('[data-relevant-toggle]')); return; }
+      if (e.key === 'e') { const input = dialog.querySelector('[data-expectation-input]'); if (input) { e.preventDefault(); input.focus(); } return; }
       if (e.key === 'c') { click(dialog.querySelector('[data-add-comment-btn]')); return; }
     }
 

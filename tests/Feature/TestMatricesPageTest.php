@@ -575,10 +575,8 @@ test('the cell dialog has what its keys need', function () {
     expect($html)->toContain('data-cell-dialog')
         ->and($html)->toContain('data-relevant-toggle')
         ->and($html)->toContain('data-add-comment-btn')
-        ->and($html)->toContain('Passed (P)')
-        ->and($html)->toContain('Failed (X)')
-        ->and($html)->toContain('Untested (U)')
-        ->and(tooltipTexts($html))->toContain('C');
+        ->and($html)->toContain('data-expectation-input')
+        ->and(tooltipTexts($html))->toContain('P', 'X', 'U', 'R', 'E', 'C');
 });
 
 test('the lists of contexts and scenarios in the dialogs have All and None buttons', function () {
@@ -610,6 +608,7 @@ test('the keyboard script handles keys inside the matrix dialogs and lists them 
     expect($script)->toContain('handleMatrixDialogKeys(e)')
         ->and($script)->toContain('Test matrix dialogs')
         ->and($script)->toContain("{ p: 'passed', x: 'failed', u: 'untested' }")
+        ->and($script)->toContain('[data-expectation-input]')
         ->and($script)->toContain('e.ctrlKey || e.metaKey')
         ->and($script)->toContain('[data-confirm-btn]')
         ->and($script)->toContain('[data-checklist]');
