@@ -66,10 +66,14 @@ new #[Title('Test matrices')] class extends Component {
 <div class="flex h-full w-full flex-1 flex-col gap-6" data-view="test-matrices-index">
     <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between gap-2">
-            <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('epics.board', $epic)" wire:navigate />
-            <flux:modal.trigger name="create-test-matrix" data-shortcut="new-test-matrix">
-                <flux:button variant="primary" size="sm" icon="plus">{{ __('New test matrix') }}</flux:button>
-            </flux:modal.trigger>
+            <flux:tooltip content="Esc">
+                <flux:button variant="ghost" size="sm" icon="arrow-left" :href="route('epics.board', $epic)" wire:navigate />
+            </flux:tooltip>
+            <flux:tooltip content="N / +">
+                <flux:modal.trigger name="create-test-matrix" data-shortcut="new-test-matrix">
+                    <flux:button variant="primary" size="sm" icon="plus">{{ __('New test matrix') }}</flux:button>
+                </flux:modal.trigger>
+            </flux:tooltip>
         </div>
         <flux:heading size="xl">{{ __('Test matrices') }}</flux:heading>
         <flux:subheading>{{ $epic->name }} — {{ __('scenarios as rows, contexts as columns, a result in every cell.') }}</flux:subheading>
@@ -94,7 +98,9 @@ new #[Title('Test matrices')] class extends Component {
                         <flux:badge size="sm" color="zinc">{{ __('Untested') }} · {{ $summary['untested'] }}</flux:badge>
                     </div>
                 </div>
-                <flux:button variant="ghost" size="sm" icon="trash" :aria-label="__('Delete test matrix')" data-delete-btn wire:click="confirmDeleteMatrix('{{ $matrix->id }}')" />
+                <flux:tooltip content="Delete">
+                    <flux:button variant="ghost" size="sm" icon="trash" :aria-label="__('Delete test matrix')" data-delete-btn wire:click="confirmDeleteMatrix('{{ $matrix->id }}')" />
+                </flux:tooltip>
             </div>
         @empty
             <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-20 dark:border-zinc-700 dark:bg-zinc-900/50">
@@ -105,30 +111,34 @@ new #[Title('Test matrices')] class extends Component {
     </div>
 
     <flux:modal name="create-test-matrix" :show="$errors->isNotEmpty()" focusable class="md:w-[480px]">
-        <form wire:submit="createMatrix" @keydown.ctrl.enter.prevent="$wire.createMatrix()" class="space-y-5">
+        <form wire:submit="createMatrix" @keydown.ctrl.enter.prevent="$wire.createMatrix()" @keydown.meta.enter.prevent="$wire.createMatrix()" class="space-y-5">
             <flux:heading size="lg">{{ __('New test matrix') }}</flux:heading>
             <flux:input wire:model="name" :label="__('Name')" autofocus required />
             <flux:textarea wire:model="description" :label="__('Description (optional)')" rows="3" />
             <div class="flex justify-end gap-2">
-                <flux:modal.close>
-                    <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                </flux:modal.close>
-                <flux:button variant="primary" type="submit">{{ __('Create test matrix') }}</flux:button>
+                <flux:tooltip content="Esc">
+                    <flux:modal.close>
+                        <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                    </flux:modal.close>
+                </flux:tooltip>
+                <flux:tooltip content="Ctrl+Enter"><flux:button variant="primary" type="submit" data-save-btn>{{ __('Create test matrix') }}</flux:button></flux:tooltip>
             </div>
         </form>
     </flux:modal>
 
     <flux:modal name="delete-test-matrix" class="w-full sm:min-w-[22rem]">
-        <div class="space-y-6">
+        <div class="space-y-6" data-confirm>
             <div>
                 <flux:heading size="lg">{{ __('Delete test matrix') }}</flux:heading>
                 <flux:text class="mt-2">{{ __('This permanently deletes the matrix with its contexts, scenarios and results. The tasks made from its comments stay.') }}</flux:text>
             </div>
             <div class="flex justify-end gap-2">
-                <flux:modal.close>
-                    <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                </flux:modal.close>
-                <flux:button variant="danger" wire:click="deleteMatrix">{{ __('Delete') }}</flux:button>
+                <flux:tooltip content="Esc">
+                    <flux:modal.close>
+                        <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                    </flux:modal.close>
+                </flux:tooltip>
+                <flux:tooltip content="Enter"><flux:button variant="danger" data-confirm-btn wire:click="deleteMatrix">{{ __('Delete') }}</flux:button></flux:tooltip>
             </div>
         </div>
     </flux:modal>

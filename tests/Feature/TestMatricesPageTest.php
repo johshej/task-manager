@@ -100,8 +100,8 @@ test('the matrix page shows contexts as columns with their full name on hover, a
         ->assertSee('Roles and devices')
         ->assertSee('LD')
         ->assertSee('LDO')
-        ->assertSee('title="Log in / Desktop — A logged in user on a desktop browser"', false)
-        ->assertSee('title="Log in / Desktop / Offline"', false)
+        ->assertSee('Log in / Desktop — A logged in user on a desktop browser (Shift+E)')
+        ->assertSee('Log in / Desktop / Offline (Shift+E)')
         ->assertSee('Log in')
         ->assertSee('Log out');
 });
@@ -528,4 +528,89 @@ test('the keyboard script keeps Escape from going back while a dialog is open an
     expect($script)->toContain("document.querySelector('dialog[open]')")
         ->and($script)->toContain('_modalWasOpenOnEscape')
         ->and($script)->toContain('Test matrix grid');
+});
+
+// ── Shortcut tips and dialog keys ─────────────────────────────────────────────
+
+/** The texts of the tooltips (the flux tooltips) that a rendered page contains. */
+function tooltipTexts(string $html): array
+{
+    preg_match_all('/data-flux-tooltip-content[^>]*>\s*(.*?)\s*<\/div>/s', $html, $matches);
+
+    return array_map(fn ($text) => html_entity_decode(trim($text)), $matches[1]);
+}
+
+test('the grid page shows the shortcut keys on hover', function () {
+    $html = $this->get(route('test-matrices.show', [$this->epic, $this->matrix]))->assertOk()->getContent();
+
+    expect(tooltipTexts($html))->toContain('Esc', 'M', 'Shift+N', 'N / +', 'Ctrl+Enter', 'Log in / Desktop — A logged in user on a desktop browser (Shift+E)');
+
+    foreach (['(Shift+←)', '(Shift+→)', '(Shift+↑)', '(Shift+↓)', 'Edit scenario (E)', 'Details and comments (Enter)'] as $tip) {
+        expect($html)->toContain($tip);
+    }
+});
+
+test('the list page shows the shortcut keys on hover', function () {
+    $html = $this->get(route('test-matrices', $this->epic))->assertOk()->getContent();
+
+    expect(tooltipTexts($html))->toContain('Esc', 'N / +', 'Delete');
+});
+
+test('the forms can also be saved with Cmd+Enter and the keyboard script can find the buttons', function () {
+    $html = $this->get(route('test-matrices.show', [$this->epic, $this->matrix]))->getContent();
+
+    foreach (['saveMatrix', 'saveScenario', 'saveContext', 'saveResult', 'saveComment'] as $method) {
+        expect($html)->toContain('@keydown.meta.enter.prevent="$wire.'.$method.'()"');
+    }
+
+    expect(substr_count($html, 'data-save-btn="data-save-btn"'))->toBe(5)
+        ->and(substr_count($html, 'data-confirm-btn="data-confirm-btn"'))->toBe(3)
+        ->and(substr_count($html, 'data-confirm>'))->toBe(3)
+        ->and(tooltipTexts($html))->toContain('Enter');
+});
+
+test('the cell dialog has what its keys need', function () {
+    $html = showMatrix()->call('openResult', $this->login->id, $this->desktop->id)->html();
+
+    expect($html)->toContain('data-cell-dialog')
+        ->and($html)->toContain('data-relevant-toggle')
+        ->and($html)->toContain('data-add-comment-btn')
+        ->and($html)->toContain('Passed (P)')
+        ->and($html)->toContain('Failed (X)')
+        ->and($html)->toContain('Untested (U)')
+        ->and(tooltipTexts($html))->toContain('C');
+});
+
+test('the lists of contexts and scenarios in the dialogs have All and None buttons', function () {
+    $html = $this->get(route('test-matrices.show', [$this->epic, $this->matrix]))->getContent();
+
+    expect(substr_count($html, 'data-checklist-head>'))->toBe(3)
+        ->and(substr_count($html, 'data-checklist>'))->toBe(3)
+        ->and(tooltipTexts($html))->toContain('A', 'N');
+});
+
+test('an automated test is added with Enter in its fields', function () {
+    $html = showMatrix()->call('openScenario', $this->login->id)->html();
+
+    expect(substr_count($html, 'wire:keydown.enter.prevent="addAutomatedTest"'))->toBe(3);
+});
+
+test('the list page can be saved and confirmed with the keyboard', function () {
+    $html = $this->get(route('test-matrices', $this->epic))->getContent();
+
+    expect($html)->toContain('@keydown.meta.enter.prevent="$wire.createMatrix()"')
+        ->and($html)->toContain('data-save-btn="data-save-btn"')
+        ->and($html)->toContain('data-confirm-btn="data-confirm-btn"')
+        ->and(tooltipTexts($html))->toContain('Ctrl+Enter', 'Enter');
+});
+
+test('the keyboard script handles keys inside the matrix dialogs and lists them in the help', function () {
+    $script = file_get_contents(public_path('js/shortcuts.js'));
+
+    expect($script)->toContain('handleMatrixDialogKeys(e)')
+        ->and($script)->toContain('Test matrix dialogs')
+        ->and($script)->toContain("{ p: 'passed', x: 'failed', u: 'untested' }")
+        ->and($script)->toContain('e.ctrlKey || e.metaKey')
+        ->and($script)->toContain('[data-confirm-btn]')
+        ->and($script)->toContain('[data-checklist]');
 });
