@@ -799,17 +799,27 @@ new #[Title('Test matrix')] class extends Component {
             <form wire:submit="saveResult" @keydown.ctrl.enter.prevent="$wire.saveResult()" @keydown.meta.enter.prevent="$wire.saveResult()" class="space-y-4">
                 <div class="flex flex-wrap items-center gap-4">
                     @foreach (TestResultStatus::cases() as $status)
-                        <label class="flex cursor-pointer items-center gap-2 text-sm" title="{{ $status->label() }} ({{ match ($status) { TestResultStatus::Passed => 'P', TestResultStatus::Failed => 'X', TestResultStatus::Untested => 'U' } }})">
-                            <input type="radio" wire:model="resultStatus" value="{{ $status->value }}" class="border-zinc-300 text-blue-600 focus:ring-blue-500">
-                            <flux:badge size="sm" color="{{ $status->color() }}">{{ $status->label() }}</flux:badge>
-                        </label>
+                        <flux:tooltip :content="match ($status) { TestResultStatus::Passed => 'P', TestResultStatus::Failed => 'X', TestResultStatus::Untested => 'U' }">
+                            <label class="flex cursor-pointer items-center gap-2 text-sm">
+                                <input type="radio" wire:model="resultStatus" value="{{ $status->value }}" class="border-zinc-300 text-blue-600 focus:ring-blue-500">
+                                <flux:badge size="sm" color="{{ $status->color() }}">{{ $status->label() }}</flux:badge>
+                            </label>
+                        </flux:tooltip>
                     @endforeach
                 </div>
-                <label class="flex cursor-pointer items-center gap-2 text-sm" title="R">
-                    <input type="checkbox" wire:model="resultRelevant" data-relevant-toggle class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600">
-                    {{ __('This scenario is relevant in this context') }}
-                </label>
-                <flux:input wire:model="resultExpectation" :label="__('Expected here (optional)')" :placeholder="__('For example: Refused, or Read only')" />
+                <div>
+                    <flux:tooltip content="R">
+                        <label class="flex w-fit cursor-pointer items-center gap-2 text-sm">
+                            <input type="checkbox" wire:model="resultRelevant" data-relevant-toggle class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600">
+                            {{ __('This scenario is relevant in this context') }}
+                        </label>
+                    </flux:tooltip>
+                </div>
+                <div>
+                    <flux:tooltip content="E">
+                        <flux:input wire:model="resultExpectation" data-expectation-input :label="__('Expected here (optional)')" :placeholder="__('For example: Refused, or Read only')" />
+                    </flux:tooltip>
+                </div>
                 <div class="flex justify-end gap-2">
                     <flux:tooltip content="Esc"><flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close></flux:tooltip>
                     <flux:tooltip content="Ctrl+Enter"><flux:button variant="primary" type="submit" data-save-btn>{{ __('Save') }}</flux:button></flux:tooltip>
