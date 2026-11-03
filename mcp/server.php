@@ -27,6 +27,12 @@ declare(strict_types=1);
  *   - task_create      — create a task under a feature, appended to the bottom
  *   - epic_list        — list all epics with full IDs
  *   - epic_note        — add note to epic history
+ *   - test_matrix_*    — list/get/create/update/delete a test matrix (scenarios as rows, contexts as columns)
+ *   - test_context_*   — create/update/delete a context (a column: one named combination such as "Log in / Desktop")
+ *   - test_scenario_*  — create/update/delete a scenario (a row) and set in which contexts it is relevant
+ *   - test_result_set  — mark a cell passed/failed/untested, relevant or not
+ *   - test_comment_*   — list/create/update/delete comments; a comment is a task given to one or more contexts
+ *   - automated_test_* — list/create/update/delete the automated tests that cover a scenario
  *   - config_show      — show resolved .task-manager config (token masked)
  */
 const PROTOCOL_VERSION = '2025-06-18';
@@ -233,6 +239,95 @@ function tm_tools(): array
             'inputSchema' => ['type' => 'object', 'required' => ['body'],
                 'properties' => ['body' => ['type' => 'string'], 'cwd' => $cwdProp]]],
 
+        ['name' => 'test_matrix_list', 'description' => 'List the test matrices of an epic (scenarios as rows, contexts as columns), with how many cells are passed, failed and untested.',
+            'inputSchema' => ['type' => 'object', 'properties' => ['epic_id' => ['type' => 'string', 'description' => 'UUID. Optional — falls back to EPIC_ID in .task-manager.'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_matrix_get', 'description' => 'Get a whole test matrix: contexts (columns), scenarios (rows, with their automated tests) and every cell (result id, relevant, status, expectation).',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_matrix_id'], 'properties' => ['test_matrix_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_matrix_create', 'description' => 'Create a test matrix in an epic.',
+            'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => [
+                'epic_id' => ['type' => 'string', 'description' => 'UUID. Optional — falls back to EPIC_ID in .task-manager.'],
+                'name' => ['type' => 'string'], 'description' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_matrix_update', 'description' => 'Update a test matrix (name, description, or the feature that collects the tasks made from comments).',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_matrix_id'], 'properties' => [
+                'test_matrix_id' => ['type' => 'string'], 'name' => ['type' => 'string'], 'description' => ['type' => 'string'],
+                'feature_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_matrix_delete', 'description' => 'Delete a test matrix with its contexts, scenarios, results and comment links (the comment tasks stay).',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_matrix_id'], 'properties' => ['test_matrix_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_context_create', 'description' => 'Add a context (a column) to a test matrix: one named combination such as "Log in / Desktop / Offline". The code is the short header; name and description give the full meaning. It gets a cell in every scenario.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_matrix_id', 'code', 'name'], 'properties' => [
+                'test_matrix_id' => ['type' => 'string'], 'code' => ['type' => 'string', 'description' => 'Short, unique within the matrix, max 20 characters.'],
+                'name' => ['type' => 'string'], 'description' => ['type' => 'string'],
+                'test_scenario_ids' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Only these scenarios are relevant in the context. Default: all.'],
+                'cwd' => $cwdProp]]],
+
+        ['name' => 'test_context_update', 'description' => 'Update a context (code, name, description, order_index).',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_context_id'], 'properties' => [
+                'test_context_id' => ['type' => 'string'], 'code' => ['type' => 'string'], 'name' => ['type' => 'string'],
+                'description' => ['type' => 'string'], 'order_index' => ['type' => 'integer'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_context_delete', 'description' => 'Delete a context with its cells.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_context_id'], 'properties' => ['test_context_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_scenario_create', 'description' => 'Add a scenario (a row) to a test matrix. It gets a cell in every context.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_matrix_id', 'title'], 'properties' => [
+                'test_matrix_id' => ['type' => 'string'], 'title' => ['type' => 'string'], 'description' => ['type' => 'string'],
+                'test_context_ids' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Only these contexts are relevant for the scenario. Default: all.'],
+                'cwd' => $cwdProp]]],
+
+        ['name' => 'test_scenario_update', 'description' => 'Update a scenario (title, description, order_index).',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_scenario_id'], 'properties' => [
+                'test_scenario_id' => ['type' => 'string'], 'title' => ['type' => 'string'], 'description' => ['type' => 'string'],
+                'order_index' => ['type' => 'integer'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_scenario_relevance', 'description' => 'Make a scenario relevant in exactly the listed contexts and not relevant in the others.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_scenario_id', 'test_context_ids'], 'properties' => [
+                'test_scenario_id' => ['type' => 'string'], 'test_context_ids' => ['type' => 'array', 'items' => ['type' => 'string']], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_scenario_delete', 'description' => 'Delete a scenario with its cells and automated tests.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_scenario_id'], 'properties' => ['test_scenario_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_result_set', 'description' => 'Set a cell: status (untested|passed|failed), relevant (false = the scenario does not apply in that context), expectation (what is expected when not the plain "works", such as "Refused"). Identify the cell by test_result_id, or by test_scenario_id and test_context_id.',
+            'inputSchema' => ['type' => 'object', 'properties' => [
+                'test_result_id' => ['type' => 'string'], 'test_scenario_id' => ['type' => 'string'], 'test_context_id' => ['type' => 'string'],
+                'status' => ['type' => 'string'], 'relevant' => ['type' => 'boolean'], 'expectation' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_comment_list', 'description' => 'List the comments of a test matrix. A comment is a task: it has title, description, status and the test_context_ids it is given to.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_matrix_id'], 'properties' => ['test_matrix_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_comment_create', 'description' => 'Comment on a scenario for one or more contexts it affects. Makes a task (status todo) in the feature that collects the matrix\'s comments.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_scenario_id', 'test_context_ids', 'title'], 'properties' => [
+                'test_scenario_id' => ['type' => 'string'], 'test_context_ids' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'At least one context of the scenario\'s matrix.'],
+                'title' => ['type' => 'string'], 'description' => ['type' => 'string'], 'status' => ['type' => 'string'], 'priority' => ['type' => 'integer'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_comment_update', 'description' => 'Update a comment: title, description, status, priority, or the contexts it is given to.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_comment_id'], 'properties' => [
+                'test_comment_id' => ['type' => 'string'], 'title' => ['type' => 'string'], 'description' => ['type' => 'string'], 'status' => ['type' => 'string'],
+                'priority' => ['type' => 'integer'], 'test_context_ids' => ['type' => 'array', 'items' => ['type' => 'string']], 'cwd' => $cwdProp]]],
+
+        ['name' => 'test_comment_delete', 'description' => 'Delete a comment together with its task.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_comment_id'], 'properties' => ['test_comment_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'automated_test_list', 'description' => 'List the automated tests that cover a scenario.',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_scenario_id'], 'properties' => ['test_scenario_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'automated_test_create', 'description' => 'List an automated test as covering a scenario: its name and where it is (file_path), and its kind (feature, browser, unit …).',
+            'inputSchema' => ['type' => 'object', 'required' => ['test_scenario_id', 'name'], 'properties' => [
+                'test_scenario_id' => ['type' => 'string'], 'name' => ['type' => 'string'], 'file_path' => ['type' => 'string'],
+                'kind' => ['type' => 'string'], 'description' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'automated_test_update', 'description' => 'Update an automated test of a scenario.',
+            'inputSchema' => ['type' => 'object', 'required' => ['automated_test_id'], 'properties' => [
+                'automated_test_id' => ['type' => 'string'], 'name' => ['type' => 'string'], 'file_path' => ['type' => 'string'],
+                'kind' => ['type' => 'string'], 'description' => ['type' => 'string'], 'order_index' => ['type' => 'integer'], 'cwd' => $cwdProp]]],
+
+        ['name' => 'automated_test_delete', 'description' => 'Remove an automated test from a scenario.',
+            'inputSchema' => ['type' => 'object', 'required' => ['automated_test_id'], 'properties' => ['automated_test_id' => ['type' => 'string'], 'cwd' => $cwdProp]]],
+
         ['name' => 'config_show', 'description' => 'Show resolved .task-manager config (token masked).',
             'inputSchema' => ['type' => 'object', 'properties' => ['cwd' => $cwdProp]]],
     ];
@@ -247,6 +342,18 @@ function tm_require(array $cfg, string $key, ?string $override, string $label): 
         return $cfg[$key];
     }
     throw new RuntimeException("Missing $label: pass it explicitly or set $key in .task-manager.");
+}
+
+function tm_pick(array $args, array $keys, array $extra = []): array
+{
+    $payload = $extra;
+    foreach ($keys as $key) {
+        if (array_key_exists($key, $args) && $args[$key] !== null) {
+            $payload[$key] = $args[$key];
+        }
+    }
+
+    return $payload;
 }
 
 function tm_set_active(array $cfg, ?string $taskId, ?string $featureId): void
@@ -382,6 +489,90 @@ function tm_call_tool(string $name, array $args): array
             $epic = tm_require($cfg, 'EPIC_ID', null, 'EPIC_ID');
 
             return tm_http($cfg, 'POST', "/epics/$epic/history", ['action' => 'note', 'body' => $args['body']]);
+
+        case 'test_matrix_list':
+            $epicId = tm_require($cfg, 'EPIC_ID', $args['epic_id'] ?? null, 'epic_id');
+
+            return tm_http($cfg, 'GET', "/epics/$epicId/test-matrices");
+
+        case 'test_matrix_get':
+            return tm_http($cfg, 'GET', '/test-matrices/'.$args['test_matrix_id']);
+
+        case 'test_matrix_create':
+            $epicId = tm_require($cfg, 'EPIC_ID', $args['epic_id'] ?? null, 'epic_id');
+
+            return tm_http($cfg, 'POST', '/test-matrices', tm_pick($args, ['name', 'description'], ['epic_id' => $epicId]));
+
+        case 'test_matrix_update':
+            return tm_http($cfg, 'PUT', '/test-matrices/'.$args['test_matrix_id'], tm_pick($args, ['name', 'description', 'feature_id']));
+
+        case 'test_matrix_delete':
+            return tm_http($cfg, 'DELETE', '/test-matrices/'.$args['test_matrix_id']) + ['ok' => true];
+
+        case 'test_context_create':
+            return tm_http($cfg, 'POST', '/test-contexts', tm_pick($args, ['test_matrix_id', 'code', 'name', 'description', 'test_scenario_ids']));
+
+        case 'test_context_update':
+            return tm_http($cfg, 'PUT', '/test-contexts/'.$args['test_context_id'], tm_pick($args, ['code', 'name', 'description', 'order_index']));
+
+        case 'test_context_delete':
+            return tm_http($cfg, 'DELETE', '/test-contexts/'.$args['test_context_id']) + ['ok' => true];
+
+        case 'test_scenario_create':
+            return tm_http($cfg, 'POST', '/test-scenarios', tm_pick($args, ['test_matrix_id', 'title', 'description', 'test_context_ids']));
+
+        case 'test_scenario_update':
+            return tm_http($cfg, 'PUT', '/test-scenarios/'.$args['test_scenario_id'], tm_pick($args, ['title', 'description', 'order_index']));
+
+        case 'test_scenario_relevance':
+            return tm_http($cfg, 'PUT', '/test-scenarios/'.$args['test_scenario_id'].'/relevance', ['test_context_ids' => $args['test_context_ids']]);
+
+        case 'test_scenario_delete':
+            return tm_http($cfg, 'DELETE', '/test-scenarios/'.$args['test_scenario_id']) + ['ok' => true];
+
+        case 'test_result_set':
+            $resultId = $args['test_result_id'] ?? null;
+            if ($resultId === null) {
+                if (empty($args['test_scenario_id']) || empty($args['test_context_id'])) {
+                    throw new RuntimeException('Pass test_result_id, or both test_scenario_id and test_context_id.');
+                }
+                $scenario = tm_http($cfg, 'GET', '/test-scenarios/'.$args['test_scenario_id']);
+                $results = tm_http($cfg, 'GET', '/test-matrices/'.($scenario['data']['test_matrix_id'] ?? '').'/results');
+                foreach ($results['data'] ?? [] as $result) {
+                    if ($result['test_scenario_id'] === $args['test_scenario_id'] && $result['test_context_id'] === $args['test_context_id']) {
+                        $resultId = $result['id'];
+                    }
+                }
+                if ($resultId === null) {
+                    throw new RuntimeException('No cell for that scenario and context.');
+                }
+            }
+
+            return tm_http($cfg, 'PATCH', "/test-results/$resultId", tm_pick($args, ['status', 'relevant', 'expectation']));
+
+        case 'test_comment_list':
+            return tm_http($cfg, 'GET', '/test-matrices/'.$args['test_matrix_id'].'/comments');
+
+        case 'test_comment_create':
+            return tm_http($cfg, 'POST', '/test-comments', tm_pick($args, ['test_scenario_id', 'test_context_ids', 'title', 'description', 'status', 'priority']));
+
+        case 'test_comment_update':
+            return tm_http($cfg, 'PUT', '/test-comments/'.$args['test_comment_id'], tm_pick($args, ['title', 'description', 'status', 'priority', 'test_context_ids']));
+
+        case 'test_comment_delete':
+            return tm_http($cfg, 'DELETE', '/test-comments/'.$args['test_comment_id']) + ['ok' => true];
+
+        case 'automated_test_list':
+            return tm_http($cfg, 'GET', '/test-scenarios/'.$args['test_scenario_id'].'/automated-tests');
+
+        case 'automated_test_create':
+            return tm_http($cfg, 'POST', '/automated-tests', tm_pick($args, ['test_scenario_id', 'name', 'file_path', 'kind', 'description']));
+
+        case 'automated_test_update':
+            return tm_http($cfg, 'PUT', '/automated-tests/'.$args['automated_test_id'], tm_pick($args, ['name', 'file_path', 'kind', 'description', 'order_index']));
+
+        case 'automated_test_delete':
+            return tm_http($cfg, 'DELETE', '/automated-tests/'.$args['automated_test_id']) + ['ok' => true];
 
         case 'config_show':
             $shown = $cfg;

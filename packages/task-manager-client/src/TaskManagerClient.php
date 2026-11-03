@@ -155,6 +155,182 @@ class TaskManagerClient
         return $this->post("tasks/{$taskId}/history", array_merge(['action' => 'note', 'metadata' => $metadata], $options));
     }
 
+    // ── Test matrices ─────────────────────────────────────────────────────────
+
+    /** @return array<int, mixed> */
+    public function listTestMatrices(string $epicId): array
+    {
+        return $this->get("epics/{$epicId}/test-matrices");
+    }
+
+    /** The whole grid: contexts, scenarios with their automated tests, and every cell. @return array<string, mixed> */
+    public function getTestMatrix(string $testMatrixId): array
+    {
+        return $this->get("test-matrices/{$testMatrixId}");
+    }
+
+    /** @return array<string, mixed> */
+    public function createTestMatrix(array $data): array
+    {
+        return $this->post('test-matrices', $data);
+    }
+
+    /** @return array<string, mixed> */
+    public function updateTestMatrix(string $testMatrixId, array $data): array
+    {
+        return $this->put("test-matrices/{$testMatrixId}", $data);
+    }
+
+    public function deleteTestMatrix(string $testMatrixId): void
+    {
+        $this->delete("test-matrices/{$testMatrixId}");
+    }
+
+    /** @return array<int, mixed> */
+    public function listTestContexts(string $testMatrixId): array
+    {
+        return $this->get("test-matrices/{$testMatrixId}/contexts");
+    }
+
+    /** @return array<string, mixed> */
+    public function getTestContext(string $testContextId): array
+    {
+        return $this->get("test-contexts/{$testContextId}");
+    }
+
+    /** @return array<string, mixed> */
+    public function createTestContext(array $data): array
+    {
+        return $this->post('test-contexts', $data);
+    }
+
+    /** @return array<string, mixed> */
+    public function updateTestContext(string $testContextId, array $data): array
+    {
+        return $this->put("test-contexts/{$testContextId}", $data);
+    }
+
+    public function deleteTestContext(string $testContextId): void
+    {
+        $this->delete("test-contexts/{$testContextId}");
+    }
+
+    /** @return array<int, mixed> */
+    public function listTestScenarios(string $testMatrixId): array
+    {
+        return $this->get("test-matrices/{$testMatrixId}/scenarios");
+    }
+
+    /** @return array<string, mixed> */
+    public function getTestScenario(string $testScenarioId): array
+    {
+        return $this->get("test-scenarios/{$testScenarioId}");
+    }
+
+    /** @return array<string, mixed> */
+    public function createTestScenario(array $data): array
+    {
+        return $this->post('test-scenarios', $data);
+    }
+
+    /** @return array<string, mixed> */
+    public function updateTestScenario(string $testScenarioId, array $data): array
+    {
+        return $this->put("test-scenarios/{$testScenarioId}", $data);
+    }
+
+    /**
+     * Makes the scenario relevant in the listed contexts and not relevant in the others.
+     *
+     * @param  array<int, string>  $testContextIds
+     * @return array<string, mixed>
+     */
+    public function setTestScenarioRelevance(string $testScenarioId, array $testContextIds): array
+    {
+        return $this->put("test-scenarios/{$testScenarioId}/relevance", ['test_context_ids' => $testContextIds]);
+    }
+
+    public function deleteTestScenario(string $testScenarioId): void
+    {
+        $this->delete("test-scenarios/{$testScenarioId}");
+    }
+
+    /** @return array<int, mixed> */
+    public function listTestResults(string $testMatrixId): array
+    {
+        return $this->get("test-matrices/{$testMatrixId}/results");
+    }
+
+    /** @return array<string, mixed> */
+    public function getTestResult(string $testResultId): array
+    {
+        return $this->get("test-results/{$testResultId}");
+    }
+
+    /** @param  array<string, mixed>  $data  Any of status (untested|passed|failed), relevant and expectation. @return array<string, mixed> */
+    public function updateTestResult(string $testResultId, array $data): array
+    {
+        return $this->patch("test-results/{$testResultId}", $data);
+    }
+
+    /** @return array<int, mixed> */
+    public function listTestComments(string $testMatrixId): array
+    {
+        return $this->get("test-matrices/{$testMatrixId}/comments");
+    }
+
+    /** @return array<string, mixed> */
+    public function getTestComment(string $testCommentId): array
+    {
+        return $this->get("test-comments/{$testCommentId}");
+    }
+
+    /** A comment is a task given to one or more contexts. @return array<string, mixed> */
+    public function createTestComment(array $data): array
+    {
+        return $this->post('test-comments', $data);
+    }
+
+    /** @return array<string, mixed> */
+    public function updateTestComment(string $testCommentId, array $data): array
+    {
+        return $this->put("test-comments/{$testCommentId}", $data);
+    }
+
+    public function deleteTestComment(string $testCommentId): void
+    {
+        $this->delete("test-comments/{$testCommentId}");
+    }
+
+    /** @return array<int, mixed> */
+    public function listAutomatedTests(string $testScenarioId): array
+    {
+        return $this->get("test-scenarios/{$testScenarioId}/automated-tests");
+    }
+
+    /** @return array<string, mixed> */
+    public function getAutomatedTest(string $automatedTestId): array
+    {
+        return $this->get("automated-tests/{$automatedTestId}");
+    }
+
+    /** @return array<string, mixed> */
+    public function createAutomatedTest(array $data): array
+    {
+        return $this->post('automated-tests', $data);
+    }
+
+    /** @return array<string, mixed> */
+    public function updateAutomatedTest(string $automatedTestId, array $data): array
+    {
+        return $this->put("automated-tests/{$automatedTestId}", $data);
+    }
+
+    public function deleteAutomatedTest(string $automatedTestId): void
+    {
+        $this->delete("automated-tests/{$automatedTestId}");
+    }
+
     // ── HTTP helpers ──────────────────────────────────────────────────────────
 
     /** @return array<string, mixed>|array<int, mixed> */

@@ -214,3 +214,51 @@ test('sends bearer token in all requests', function () {
 
     Http::assertSent(fn ($req) => $req->hasHeader('Authorization', 'Bearer test-token'));
 });
+
+// ── Test matrices ─────────────────────────────────────────────────────────────
+
+test('test matrix methods call the matching endpoints', function (string $method, array $arguments, string $httpMethod, string $path) {
+    Http::fake(['https://tm.example.com/*' => Http::response(['data' => ['id' => 'x']])]);
+
+    makeClient()->{$method}(...$arguments);
+
+    Http::assertSent(fn ($request) => $request->method() === $httpMethod && $request->url() === "https://tm.example.com/api/v1/{$path}");
+})->with([
+    'listTestMatrices' => ['listTestMatrices', ['epic'], 'GET', 'epics/epic/test-matrices'],
+    'getTestMatrix' => ['getTestMatrix', ['m'], 'GET', 'test-matrices/m'],
+    'createTestMatrix' => ['createTestMatrix', [['name' => 'A']], 'POST', 'test-matrices'],
+    'updateTestMatrix' => ['updateTestMatrix', ['m', ['name' => 'B']], 'PUT', 'test-matrices/m'],
+    'deleteTestMatrix' => ['deleteTestMatrix', ['m'], 'DELETE', 'test-matrices/m'],
+    'listTestContexts' => ['listTestContexts', ['m'], 'GET', 'test-matrices/m/contexts'],
+    'getTestContext' => ['getTestContext', ['c'], 'GET', 'test-contexts/c'],
+    'createTestContext' => ['createTestContext', [['code' => 'DT']], 'POST', 'test-contexts'],
+    'updateTestContext' => ['updateTestContext', ['c', ['name' => 'B']], 'PUT', 'test-contexts/c'],
+    'deleteTestContext' => ['deleteTestContext', ['c'], 'DELETE', 'test-contexts/c'],
+    'listTestScenarios' => ['listTestScenarios', ['m'], 'GET', 'test-matrices/m/scenarios'],
+    'getTestScenario' => ['getTestScenario', ['s'], 'GET', 'test-scenarios/s'],
+    'createTestScenario' => ['createTestScenario', [['title' => 'A']], 'POST', 'test-scenarios'],
+    'updateTestScenario' => ['updateTestScenario', ['s', ['title' => 'B']], 'PUT', 'test-scenarios/s'],
+    'setTestScenarioRelevance' => ['setTestScenarioRelevance', ['s', ['c']], 'PUT', 'test-scenarios/s/relevance'],
+    'deleteTestScenario' => ['deleteTestScenario', ['s'], 'DELETE', 'test-scenarios/s'],
+    'listTestResults' => ['listTestResults', ['m'], 'GET', 'test-matrices/m/results'],
+    'getTestResult' => ['getTestResult', ['r'], 'GET', 'test-results/r'],
+    'updateTestResult' => ['updateTestResult', ['r', ['status' => 'passed']], 'PATCH', 'test-results/r'],
+    'listTestComments' => ['listTestComments', ['m'], 'GET', 'test-matrices/m/comments'],
+    'getTestComment' => ['getTestComment', ['k'], 'GET', 'test-comments/k'],
+    'createTestComment' => ['createTestComment', [['title' => 'A']], 'POST', 'test-comments'],
+    'updateTestComment' => ['updateTestComment', ['k', ['title' => 'B']], 'PUT', 'test-comments/k'],
+    'deleteTestComment' => ['deleteTestComment', ['k'], 'DELETE', 'test-comments/k'],
+    'listAutomatedTests' => ['listAutomatedTests', ['s'], 'GET', 'test-scenarios/s/automated-tests'],
+    'getAutomatedTest' => ['getAutomatedTest', ['a'], 'GET', 'automated-tests/a'],
+    'createAutomatedTest' => ['createAutomatedTest', [['name' => 'A']], 'POST', 'automated-tests'],
+    'updateAutomatedTest' => ['updateAutomatedTest', ['a', ['name' => 'B']], 'PUT', 'automated-tests/a'],
+    'deleteAutomatedTest' => ['deleteAutomatedTest', ['a'], 'DELETE', 'automated-tests/a'],
+]);
+
+test('setTestScenarioRelevance sends the context ids', function () {
+    Http::fake(['https://tm.example.com/*' => Http::response(['data' => ['id' => 's']])]);
+
+    makeClient()->setTestScenarioRelevance('s', ['c1', 'c2']);
+
+    Http::assertSent(fn ($request) => $request->data()['test_context_ids'] === ['c1', 'c2']);
+});

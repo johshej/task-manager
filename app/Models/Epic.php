@@ -35,6 +35,12 @@ class Epic extends Model
         return $this->hasMany(Feature::class);
     }
 
+    /** @return HasMany<TestMatrix, $this> */
+    public function testMatrices(): HasMany
+    {
+        return $this->hasMany(TestMatrix::class)->orderBy('order_index');
+    }
+
     /** @return HasMany<EpicHistory, $this> */
     public function history(): HasMany
     {
