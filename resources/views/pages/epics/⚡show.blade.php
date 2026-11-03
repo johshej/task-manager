@@ -914,6 +914,9 @@ new #[Title('Epic Board')] class extends Component {
                         {{ __('Edit epic') }}
                     </flux:button>
                 </flux:tooltip>
+                <flux:button variant="ghost" size="sm" icon="table-cells" :href="route('test-matrices', $epic)" wire:navigate>
+                    {{ __('Test matrices') }}
+                </flux:button>
                 <flux:tooltip content="+ / N">
                     <flux:button variant="primary" size="sm" icon="plus" data-shortcut="add-feature" wire:click="openAddFeature">
                         {{ __('Add feature') }}

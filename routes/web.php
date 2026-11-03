@@ -22,6 +22,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('epics/{epic}/features/{feature}', 'pages::epics.show')->name('epics.board.feature');
     Route::livewire('epics/{epic}/tasks/{task}', 'pages::epics.show')->name('epics.board.task');
 
+    Route::livewire('epics/{epic}/test-matrices', 'pages::test-matrices.index')->name('test-matrices');
+    Route::livewire('epics/{epic}/test-matrices/{testMatrix}', 'pages::test-matrices.show')->name('test-matrices.show');
+
     Route::livewire('templates', 'pages::templates.index')->name('templates');
     Route::livewire('templates/features/{featureTemplate}', 'pages::templates.feature')->name('templates.feature');
     Route::livewire('templates/epics/{epicTemplate}', 'pages::templates.epic')->name('templates.epic');

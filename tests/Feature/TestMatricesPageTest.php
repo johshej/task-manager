@@ -1,0 +1,390 @@
+<?php
+
+use App\Enums\TaskStatus;
+use App\Enums\TestResultStatus;
+use App\Models\AutomatedTest;
+use App\Models\Epic;
+use App\Models\TestContext;
+use App\Models\TestMatrix;
+use App\Models\TestResult;
+use App\Models\TestScenario;
+use App\Models\User;
+use App\Services\TestMatrixGrid;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
+
+uses(LazilyRefreshDatabase::class);
+
+beforeEach(function () {
+    $this->user = User::factory()->create();
+    $this->actingAs($this->user);
+    $this->epic = Epic::factory()->create(['name' => 'Sheet']);
+    $this->matrix = TestMatrix::factory()->for($this->epic)->create(['name' => 'Roles and devices']);
+    $this->grid = app(TestMatrixGrid::class);
+
+    $this->desktop = $this->grid->addContext($this->matrix, ['code' => 'LD', 'name' => 'Log in / Desktop', 'description' => 'A logged in user on a desktop browser']);
+    $this->tablet = $this->grid->addContext($this->matrix, ['code' => 'LT', 'name' => 'Log in / Tablet']);
+    $this->offline = $this->grid->addContext($this->matrix, ['code' => 'LDO', 'name' => 'Log in / Desktop / Offline']);
+    $this->login = $this->grid->addScenario($this->matrix, ['title' => 'Log in']);
+    $this->logout = $this->grid->addScenario($this->matrix, ['title' => 'Log out'], [$this->desktop->id]);
+});
+
+function showMatrix(): Testable
+{
+    return Livewire::test('pages::test-matrices.show', ['epic' => test()->epic, 'testMatrix' => test()->matrix]);
+}
+
+function cell(TestScenario $scenario, TestContext $context): TestResult
+{
+    return TestResult::where('test_scenario_id', $scenario->id)->where('test_context_id', $context->id)->firstOrFail();
+}
+
+// ── Index ─────────────────────────────────────────────────────────────────────
+
+test('guests are redirected from the test matrices', function () {
+    auth()->logout();
+
+    $this->get(route('test-matrices', $this->epic))->assertRedirect(route('login'));
+    $this->get(route('test-matrices.show', [$this->epic, $this->matrix]))->assertRedirect(route('login'));
+});
+
+test('the test matrices page lists the matrices of the epic with their results', function () {
+    cell($this->login, $this->desktop)->update(['status' => TestResultStatus::Passed]);
+    TestMatrix::factory()->create(['name' => 'Another epic']);
+
+    $this->get(route('test-matrices', $this->epic))
+        ->assertOk()
+        ->assertSee('Roles and devices')
+        ->assertSee('Passed · 1')
+        ->assertSee('2 scenarios')
+        ->assertSee('3 contexts')
+        ->assertDontSee('Another epic');
+});
+
+test('can create a test matrix from the page', function () {
+    Livewire::test('pages::test-matrices.index', ['epic' => $this->epic])
+        ->set('name', 'Browsers')
+        ->set('description', 'Across browsers')
+        ->call('createMatrix')
+        ->assertHasNoErrors()
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('test_matrices', ['name' => 'Browsers', 'epic_id' => $this->epic->id, 'description' => 'Across browsers']);
+});
+
+test('a test matrix needs a name', function () {
+    Livewire::test('pages::test-matrices.index', ['epic' => $this->epic])
+        ->set('name', '')
+        ->call('createMatrix')
+        ->assertHasErrors(['name' => 'required']);
+});
+
+test('can delete a test matrix from the page', function () {
+    Livewire::test('pages::test-matrices.index', ['epic' => $this->epic])
+        ->call('confirmDeleteMatrix', $this->matrix->id)
+        ->call('deleteMatrix');
+
+    $this->assertModelMissing($this->matrix);
+});
+
+test('the epic board links to the test matrices', function () {
+    $this->get(route('epics.board', $this->epic))->assertOk()->assertSee(route('test-matrices', $this->epic), false);
+});
+
+// ── The grid ──────────────────────────────────────────────────────────────────
+
+test('the matrix page shows contexts as columns with their full name on hover, and scenarios as rows', function () {
+    $this->get(route('test-matrices.show', [$this->epic, $this->matrix]))
+        ->assertOk()
+        ->assertSee('Roles and devices')
+        ->assertSee('LD')
+        ->assertSee('LDO')
+        ->assertSee('title="Log in / Desktop — A logged in user on a desktop browser"', false)
+        ->assertSee('title="Log in / Desktop / Offline"', false)
+        ->assertSee('Log in')
+        ->assertSee('Log out');
+});
+
+test('a matrix of another epic is not found under this epic', function () {
+    $other = Epic::factory()->create();
+
+    $this->get(route('test-matrices.show', [$other, $this->matrix]))->assertNotFound();
+});
+
+test('an empty matrix invites to add contexts and scenarios', function () {
+    $empty = TestMatrix::factory()->for($this->epic)->create();
+
+    $this->get(route('test-matrices.show', [$this->epic, $empty]))->assertOk()->assertSee('Add contexts (columns) and scenarios (rows)');
+});
+
+test('a cell is marked passed, failed and untested again by clicking it', function () {
+    $component = showMatrix();
+    $result = cell($this->login, $this->desktop);
+
+    $component->call('cycleStatus', $this->login->id, $this->desktop->id);
+    expect($result->fresh()->status)->toBe(TestResultStatus::Passed)->and($result->fresh()->tested_at)->not->toBeNull();
+
+    $component->call('cycleStatus', $this->login->id, $this->desktop->id);
+    expect($result->fresh()->status)->toBe(TestResultStatus::Failed);
+
+    $component->call('cycleStatus', $this->login->id, $this->desktop->id);
+    expect($result->fresh()->status)->toBe(TestResultStatus::Untested);
+});
+
+test('cells that are not relevant are shown as such', function () {
+    showMatrix()->assertSeeHtml('data-state="not-relevant"');
+
+    expect(cell($this->logout, $this->tablet)->relevant)->toBeFalse();
+});
+
+test('a cell can be marked not relevant, with what is expected there', function () {
+    showMatrix()
+        ->call('openResult', $this->login->id, $this->tablet->id)
+        ->assertSet('resultStatus', 'untested')
+        ->assertSet('resultRelevant', true)
+        ->set('resultRelevant', false)
+        ->set('resultExpectation', 'Refused')
+        ->call('saveResult')
+        ->assertHasNoErrors();
+
+    $result = cell($this->login, $this->tablet);
+    expect($result->relevant)->toBeFalse()->and($result->expectation)->toBe('Refused');
+});
+
+test('a cell that is not relevant can be made relevant and marked', function () {
+    showMatrix()
+        ->call('openResult', $this->logout->id, $this->tablet->id)
+        ->set('resultRelevant', true)
+        ->set('resultStatus', 'failed')
+        ->call('saveResult');
+
+    $result = cell($this->logout, $this->tablet);
+    expect($result->relevant)->toBeTrue()->and($result->status)->toBe(TestResultStatus::Failed);
+});
+
+test('the summary shows how many relevant cells are passed, failed and untested', function () {
+    cell($this->login, $this->desktop)->update(['status' => TestResultStatus::Passed]);
+    cell($this->login, $this->tablet)->update(['status' => TestResultStatus::Failed]);
+
+    showMatrix()->assertSee('Passed · 1')->assertSee('Failed · 1')->assertSee('Untested · 2');
+});
+
+// ── Scenarios ─────────────────────────────────────────────────────────────────
+
+test('can add a scenario that is relevant in only some contexts', function () {
+    showMatrix()
+        ->call('openScenario')
+        ->assertSet('scenarioContextIds', $this->matrix->contexts()->pluck('id')->all())
+        ->set('scenarioTitle', 'Delete account')
+        ->set('scenarioDescription', 'Removes all data')
+        ->set('scenarioContextIds', [$this->tablet->id])
+        ->call('saveScenario')
+        ->assertHasNoErrors();
+
+    $scenario = TestScenario::where('title', 'Delete account')->firstOrFail();
+    expect(cell($scenario, $this->tablet)->relevant)->toBeTrue()
+        ->and(cell($scenario, $this->desktop)->relevant)->toBeFalse()
+        ->and($scenario->description)->toBe('Removes all data');
+});
+
+test('a scenario needs a title', function () {
+    showMatrix()->call('openScenario')->set('scenarioTitle', '')->call('saveScenario')->assertHasErrors(['scenarioTitle' => 'required']);
+});
+
+test('can edit a scenario and where it is relevant', function () {
+    showMatrix()
+        ->call('openScenario', $this->login->id)
+        ->assertSet('scenarioTitle', 'Log in')
+        ->assertSet('scenarioContextIds', $this->matrix->contexts()->pluck('id')->all())
+        ->set('scenarioTitle', 'Sign in')
+        ->set('scenarioContextIds', [$this->desktop->id])
+        ->call('saveScenario');
+
+    expect($this->login->fresh()->title)->toBe('Sign in')
+        ->and(cell($this->login, $this->desktop)->relevant)->toBeTrue()
+        ->and(cell($this->login, $this->tablet)->relevant)->toBeFalse();
+});
+
+test('can delete a scenario', function () {
+    showMatrix()
+        ->call('confirmDeleteScenario', $this->login->id)
+        ->call('deleteScenario');
+
+    $this->assertModelMissing($this->login);
+});
+
+test('scenarios can be moved up and down', function () {
+    showMatrix()->call('moveScenario', $this->logout->id, 'up');
+
+    expect($this->matrix->scenarios()->pluck('title')->all())->toBe(['Log out', 'Log in']);
+
+    showMatrix()->call('moveScenario', $this->logout->id, 'up');
+    expect($this->matrix->scenarios()->pluck('title')->all())->toBe(['Log out', 'Log in']);
+});
+
+test('automated tests can be listed for a scenario and removed again', function () {
+    $component = showMatrix()
+        ->call('openScenario', $this->login->id)
+        ->set('automatedTestName', 'logs in with e-mail')
+        ->set('automatedTestFilePath', 'tests/Browser/LoginTest.php')
+        ->set('automatedTestKind', 'browser')
+        ->call('addAutomatedTest')
+        ->assertHasNoErrors()
+        ->assertSet('automatedTestName', '')
+        ->assertSee('logs in with e-mail')
+        ->assertSee('tests/Browser/LoginTest.php');
+
+    $test = AutomatedTest::firstOrFail();
+    expect($test->test_scenario_id)->toBe($this->login->id)->and($test->kind)->toBe('browser');
+
+    $component->call('removeAutomatedTest', $test->id);
+    expect(AutomatedTest::count())->toBe(0);
+});
+
+test('an automated test needs a name', function () {
+    showMatrix()->call('openScenario', $this->login->id)->set('automatedTestName', '')->call('addAutomatedTest')->assertHasErrors(['automatedTestName' => 'required']);
+});
+
+test('the grid shows how many automated tests cover a scenario', function () {
+    AutomatedTest::factory()->count(2)->for($this->login, 'scenario')->create();
+
+    showMatrix()->assertSee('2 automated tests');
+});
+
+// ── Contexts ──────────────────────────────────────────────────────────────────
+
+test('can add a context that is relevant for only some scenarios', function () {
+    showMatrix()
+        ->call('openContext')
+        ->assertSet('contextScenarioIds', $this->matrix->scenarios()->pluck('id')->all())
+        ->set('contextCode', 'GL')
+        ->set('contextName', 'Guest / Phone')
+        ->set('contextScenarioIds', [$this->login->id])
+        ->call('saveContext')
+        ->assertHasNoErrors();
+
+    $context = TestContext::where('code', 'GL')->firstOrFail();
+    expect(cell($this->login, $context)->relevant)->toBeTrue()->and(cell($this->logout, $context)->relevant)->toBeFalse();
+});
+
+test('a context needs a code that no other context of the matrix has', function () {
+    showMatrix()->call('openContext')->set('contextCode', '')->set('contextName', '')->call('saveContext')->assertHasErrors(['contextCode', 'contextName']);
+
+    showMatrix()->call('openContext')->set('contextCode', 'LD')->set('contextName', 'Duplicate')->call('saveContext')->assertHasErrors(['contextCode']);
+});
+
+test('can edit a context without tripping over its own code', function () {
+    showMatrix()
+        ->call('openContext', $this->desktop->id)
+        ->assertSet('contextCode', 'LD')
+        ->assertSet('contextDescription', 'A logged in user on a desktop browser')
+        ->set('contextName', 'Log in / Desktop browser')
+        ->set('contextScenarioIds', [$this->logout->id])
+        ->call('saveContext')
+        ->assertHasNoErrors();
+
+    expect($this->desktop->fresh()->name)->toBe('Log in / Desktop browser')
+        ->and(cell($this->login, $this->desktop)->relevant)->toBeFalse()
+        ->and(cell($this->logout, $this->desktop)->relevant)->toBeTrue();
+});
+
+test('can delete a context', function () {
+    showMatrix()->call('confirmDeleteContext', $this->offline->id)->call('deleteContext');
+
+    $this->assertModelMissing($this->offline);
+});
+
+test('contexts can be moved left and right', function () {
+    showMatrix()->call('moveContext', $this->offline->id, 'up');
+
+    expect($this->matrix->contexts()->pluck('code')->all())->toBe(['LD', 'LDO', 'LT']);
+});
+
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+test('a comment made in a cell starts with that context and can be given to more', function () {
+    showMatrix()
+        ->call('newComment', $this->login->id, $this->tablet->id)
+        ->assertSet('commentContextIds', [$this->tablet->id])
+        ->set('commentTitle', 'Log in fails')
+        ->set('commentDescription', 'The button does nothing')
+        ->set('commentContextIds', [$this->tablet->id, $this->offline->id])
+        ->call('saveComment')
+        ->assertHasNoErrors();
+
+    $comment = $this->matrix->comments()->with(['task', 'contexts'])->firstOrFail();
+    expect($comment->task->title)->toBe('Log in fails')
+        ->and($comment->task->status)->toBe(TaskStatus::Todo)
+        ->and($comment->test_scenario_id)->toBe($this->login->id)
+        ->and($comment->contexts->pluck('id')->all())->toEqualCanonicalizing([$this->tablet->id, $this->offline->id]);
+});
+
+test('a comment needs a title and at least one context', function () {
+    showMatrix()
+        ->call('newComment', $this->login->id)
+        ->set('commentTitle', '')
+        ->call('saveComment')
+        ->assertHasErrors(['commentTitle', 'commentContextIds']);
+
+    expect($this->matrix->comments()->count())->toBe(0);
+});
+
+test('a comment can be edited, including the contexts it is given to', function () {
+    $comment = $this->grid->addComment($this->login, [$this->desktop->id], ['title' => 'Fails']);
+
+    showMatrix()
+        ->call('openComment', $comment->id)
+        ->assertSet('commentTitle', 'Fails')
+        ->assertSet('commentContextIds', [$this->desktop->id])
+        ->set('commentTitle', 'Fails on two')
+        ->set('commentStatus', 'active')
+        ->set('commentContextIds', [$this->desktop->id, $this->tablet->id])
+        ->call('saveComment');
+
+    expect($comment->task->fresh()->title)->toBe('Fails on two')
+        ->and($comment->task->fresh()->status)->toBe(TaskStatus::Active)
+        ->and($comment->contexts()->pluck('test_contexts.id')->all())->toEqualCanonicalizing([$this->desktop->id, $this->tablet->id]);
+});
+
+test('deleting a comment deletes its task', function () {
+    $comment = $this->grid->addComment($this->login, [$this->desktop->id], ['title' => 'Fails']);
+
+    showMatrix()->call('confirmDeleteComment', $comment->id)->call('deleteComment');
+
+    $this->assertModelMissing($comment);
+    $this->assertDatabaseMissing('tasks', ['id' => $comment->task_id]);
+});
+
+test('the grid marks the cells that have open comments and the comment list names their contexts', function () {
+    $this->grid->addComment($this->login, [$this->desktop->id, $this->tablet->id], ['title' => 'Log in fails']);
+    $finished = $this->grid->addComment($this->logout, [$this->desktop->id], ['title' => 'Old problem', 'status' => TaskStatus::Done->value]);
+
+    $component = showMatrix()
+        ->assertSeeHtml('data-comment-count')
+        ->assertSee('Log in fails')
+        ->assertSee('Old problem');
+
+    expect($component->get('openCommentCounts'))->toBe([
+        $this->login->id.'/'.$this->desktop->id => 1,
+        $this->login->id.'/'.$this->tablet->id => 1,
+    ]);
+});
+
+test('the comments of a cell are listed when it is opened', function () {
+    $this->grid->addComment($this->login, [$this->desktop->id], ['title' => 'Log in fails']);
+    $this->grid->addComment($this->login, [$this->tablet->id], ['title' => 'Only on the tablet']);
+
+    $html = showMatrix()->call('openResult', $this->login->id, $this->desktop->id)->html();
+    $cellComments = substr($html, strpos($html, 'data-cell-comments'));
+
+    expect($cellComments)->toContain('Log in fails')->not->toContain('Only on the tablet');
+});
+
+// ── Matrix ────────────────────────────────────────────────────────────────────
+
+test('can rename the matrix', function () {
+    showMatrix()->call('openMatrix')->assertSet('matrixName', 'Roles and devices')->set('matrixName', 'Everything')->call('saveMatrix')->assertHasNoErrors();
+
+    expect($this->matrix->fresh()->name)->toBe('Everything');
+});

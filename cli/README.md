@@ -73,3 +73,17 @@ All commands support `--json` for structured output:
 tm tasks list <feature-id> --json
 tm tasks note <id> --json --metadata '{"message":"Analysis complete","model":"claude-sonnet-4-6"}'
 ```
+
+## Test matrices
+
+A test matrix has scenarios as rows and contexts (named combinations such as "Log in / Desktop / Offline") as columns, with a result in every cell. A comment is a task given to one or more contexts.
+
+```bash
+tm test-matrices create --name "Roles and devices"
+tm test-matrices contexts create <matrix-id> --code LDO --name "Log in / Desktop / Offline"
+tm test-matrices scenarios create <matrix-id> --title "Log in" --contexts <context-id>,<context-id>
+tm test-matrices results set <matrix-id> <scenario-id> <context-id> --status failed
+tm test-matrices comments create <scenario-id> --contexts <context-id>,<context-id> --title "Log in fails"
+tm test-matrices automated-tests create <scenario-id> --name "logs in" --file tests/Browser/LoginTest.php --kind browser
+tm test-matrices get <matrix-id>     # the grid: . untested, ok passed, FAIL failed, - not relevant
+```
